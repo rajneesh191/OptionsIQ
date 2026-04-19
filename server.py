@@ -97,10 +97,36 @@ def fetch_option_chain(symbol):
     """Fetch option chain - NSE for Indian, yfinance for US."""
     import requests, datetime, time, math
 
-    clean = symbol.replace(".NS","").replace(".BO","").upper()
+    # Clean symbol - remove spaces, URL encoding, suffixes
+    import urllib.parse
+    clean = urllib.parse.unquote(symbol)  # decode %20 etc
+    clean = clean.replace(" ","").replace(".NS","").replace(".BO","").replace("-EQ","").upper()
+    
+    # Common name to symbol mapping
+    name_map = {
+        "ICICIBANK": "ICICIBANK",
+        "ICICBANK": "ICICIBANK", 
+        "HDFC": "HDFCBANK",
+        "HDFCBANK": "HDFCBANK",
+        "STATEBANKOFINDIA": "SBIN",
+        "RELIANCEINDUSTRIES": "RELIANCE",
+        "TATACONSUM": "TATACONSUM",
+        "BAJAJFINANCE": "BAJFINANCE",
+        "BAJAJFINSV": "BAJAJFINSV",
+        "TATAMOTORS": "TATAMOTORS",
+        "TATASTEEL": "TATASTEEL",
+        "INFOSYS": "INFY",
+        "WIPROLIMITED": "WIPRO",
+        "ULTRACEMCO": "ULTRACEMCO",
+        "ASIANPAINT": "ASIANPAINT",
+        "ASIANPAINTS": "ASIANPAINT",
+        "APOLLOHOSP": "APOLLOHOSP",
+        "APOLLOHOSPITALS": "APOLLOHOSP",
+    }
+    clean = name_map.get(clean, clean)
 
     # US stocks -> yfinance
-    us = ["AAPL","TSLA","NVDA","SPY","QQQ","MSFT","AMZN","META","GOOGL","AMD","JPM","LLY"]
+    us = ["AAPL","TSLA","NVDA","SPY","QQQ","MSFT","AMZN","META","GOOGL","AMD","JPM","LLY","PLTR","BRK-B"]
     if clean in us:
         return fetch_option_chain_us(clean)
 
