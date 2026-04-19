@@ -618,22 +618,31 @@ function mktStatus(){
 // Auto-detect server URL - works both locally and on Railway cloud
 var LOCAL_SERVER = (function(){
   var loc = window.location;
-  // If opened via localhost:8765 or a cloud URL, use same origin
-  if(loc.hostname !== '' && loc.hostname !== 'null'){
+  // If running on Railway or any web server (not local file), use same origin
+  if(loc.hostname && loc.hostname !== 'null' && loc.hostname !== ''){
+    // Use same host - works for both localhost:8765 and railway.app
     return loc.protocol + '//' + loc.host;
   }
   return 'http://localhost:8765';
 })();
+console.log('OptionsIQ server:', LOCAL_SERVER);
 var serverAvailable = false;
 var MARKET_DATA = null;
 
 // ── Check if local server is running ──
 async function checkServer() {
   try {
-    var r = await fetch(LOCAL_SERVER + '/quote?symbol=AAPL', { signal: AbortSignal.timeout ? AbortSignal.timeout(2000) : undefined });
-    if (r.ok) { serverAvailable = true; updateServerBadge(true); return true; }
-  } catch(e) {}
+    var ctrl = new AbortController();
+    var tid = setTimeout(function(){ctrl.abort();}, 3000);
+    var r = await fetch(LOCAL_SERVER + '/quote?symbol=AAPL', {signal: ctrl.signal});
+    clearTimeout(tid);
+    if (r.ok) { 
+      var d = await r.json();
+      if(d && d.price) { serverAvailable = true; updateServerBadge(true); return true; }
+    }
+  } catch(e) { console.log('Server check:', e.message); }
   serverAvailable = false;
+  updateServerBadge(false);
   return false;
 }
 
@@ -1057,7 +1066,7 @@ async function fetchOptionChain(){
   document.getElementById('oc-error').classList.add('hidden');
 
   try {
-    var r = await fetch('http://localhost:8765/optionchain?symbol='+encodeURIComponent(sym));
+    var r = await fetch(LOCAL_SERVER+'/optionchain?symbol='+encodeURIComponent(sym));
     if(!r.ok) throw new Error('Server returned '+r.status+'. Make sure server.py is running.');
     var d = await r.json();
     if(d.error) throw new Error(d.error);
@@ -1065,10 +1074,12 @@ async function fetchOptionChain(){
   } catch(e) {
     document.getElementById('oc-loading').classList.add('hidden');
     var errEl = document.getElementById('oc-error');
+    var onCloud = !LOCAL_SERVER.includes('localhost');
     errEl.innerHTML = '<strong>Error:</strong> '+e.message+'<br><br>'+
-      'Make sure <strong>server.py</strong> is running in CMD.<br>'+
-      'For NSE indices use: NIFTY, BANKNIFTY, FINNIFTY<br>'+
-      'For stocks use: SBIN, RELIANCE, TCS, HDFCBANK etc.';
+      (onCloud ? '' : 'Make sure <strong>server.py</strong> is running in CMD.<br>')+
+      '<strong>Use exact NSE symbols:</strong><br>'+
+      'Indices: NIFTY, BANKNIFTY &nbsp;|&nbsp; Stocks: SBIN, ICICIBANK, HDFCBANK, RELIANCE, TCS<br>'+
+      'US Stocks: AAPL, TSLA, SPY (always work)';
     errEl.classList.remove('hidden');
   }
 }
