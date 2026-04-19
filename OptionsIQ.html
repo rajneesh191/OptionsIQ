@@ -905,12 +905,33 @@ function buildAnalysis(stock,outlook,ivrIn,risk,dte,cap,px,ld){
   var sent=ld?ld.sentLabel:'Unknown';
   var pchg=ld?ld.chgPct:0;
   var bp=0,rp=0;
-  if(outlook.includes('Bullish'))bp+=3;
-  if(outlook.includes('Bearish'))rp+=3;
+  // Your outlook carries weight but market data can override
+  if(outlook.includes('Bullish'))bp+=2;    // reduced from 3 - market data can counter
+  if(outlook.includes('Bearish'))rp+=2;
   if(outlook.includes('Volatile')){bp+=1;rp+=1;}
-  if(sent==='Bullish')bp+=2;if(sent==='Bearish')rp+=2;
-  if(pchg>1)bp++;if(pchg>3)bp++;if(pchg<-1)rp++;if(pchg<-3)rp++;
+  // Live market sentiment - strong signal
+  if(sent==='Bullish'){bp+=3;}             // increased weight on real data
+  if(sent==='Bearish'){rp+=3;}
+  // Price momentum - real signal
+  if(pchg>1)bp++;if(pchg>3)bp+=2;
+  if(pchg<-1)rp++;if(pchg<-3)rp+=2;
   var dir=bp>rp+1?'Bullish':rp>bp+1?'Bearish':outlook.includes('Volatile')?'Volatile':'Neutral';
+  
+  // Detect conflict between user outlook and market data
+  var conflict = false;
+  var conflictMsg = '';
+  if(outlook.includes('Bullish') && (sent==='Bearish' || pchg < -2)){
+    conflict = true;
+    conflictMsg = '⚠️ CONFLICT DETECTED: Your outlook is Bullish but market data shows '+
+      (sent==='Bearish'?'Bearish news sentiment':'a '+(pchg).toFixed(2)+'% price drop today')+
+      '. Consider waiting for confirmation or use defined-risk spreads only.';
+  }
+  if(outlook.includes('Bearish') && (sent==='Bullish' || pchg > 2)){
+    conflict = true;
+    conflictMsg = '⚠️ CONFLICT DETECTED: Your outlook is Bearish but market data shows '+
+      (sent==='Bullish'?'Bullish news sentiment':'a +'+(pchg).toFixed(2)+'% price rise today')+
+      '. Consider waiting for pullback confirmation or use defined-risk spreads only.';
+  }
 
   var strats,rec,sigCls,sigDetail;
   if(dir==='Bullish'){
@@ -950,8 +971,12 @@ function buildAnalysis(stock,outlook,ivrIn,risk,dte,cap,px,ld){
   if(ivHigh)warns.push('IV is HIGH ('+ivr+'). IV crush risk for buyers — sellers have the statistical edge right now.');
   if(ivLow)warns.push('IV is LOW ('+ivr+'). Selling premium gives poor reward. Better to be a buyer here.');
 
+  // Add conflict warning to warns if detected
+  if(conflict && conflictMsg) warns.unshift(conflictMsg);
+
   return{stock:stock,rec:rec,sigCls:sigCls,sigDetail:sigDetail,dir:dir,
     ivr:ivr,ivHigh:ivHigh,ivLow:ivLow,sent:sent,cap:cap,risk:risk,px:px,
+    conflict:conflict,conflictMsg:conflictMsg,
     top:top,warns:warns,news:ld?ld.news:[],
     ivAnalysis:ivHigh?'IV Rank '+ivr+' is HIGH (>50). Options expensive — selling premium has the statistical edge.':ivLow?'IV Rank '+ivr+' is LOW (<30). Options cheap — buying premium is cost effective now.':'IV Rank '+ivr+' is MODERATE (30-50). Spreads balance cost and reward.',
     hold:hold};
@@ -1019,18 +1044,28 @@ async function runAI(){
   out.innerHTML='<div style="color:#b388ff;font-size:12px;padding:8px 0;display:flex;align-items:center;gap:7px;"><span class="spinp"></span> Generating personalized recommendation...</div>';
 
   var news=(r.news||[]).slice(0,4).map(function(n){return '- '+n.title+' ['+n.sent+']';}).join('\n');
+  var conflictNote = r.conflict ? 
+    '\n⚠️ IMPORTANT - OUTLOOK CONFLICT: User says '+
+    (LASTANALYSIS&&document.getElementById('outlook')?document.getElementById('outlook').value:'their outlook')+
+    ' but market data shows '+r.sent+' sentiment and price is '+
+    (parseFloat(r.chgPct||0)>=0?'+':'')+parseFloat(r.chgPct||0).toFixed(2)+'% today. '+
+    'Address this conflict directly in your verdict and recommend accordingly.\n' : '';
+
   var prompt='You are a senior options trading advisor. Give a specific actionable recommendation.\n\n'+
     'STOCK: '+r.stock.t.replace('.NS','')+(r.stock.n?' ('+r.stock.n+')':'')+'\n'+
     'Price: '+(r.px||'not provided')+'\n'+
     'IV Rank: '+r.ivr+' ('+(r.ivHigh?'HIGH — sell premium':r.ivLow?'LOW — buy premium':'MODERATE')+') \n'+
-    'Direction: '+r.dir+'\n'+
-    'Signal: '+r.rec+'\n'+
+    'User Outlook: '+(document.getElementById('outlook')?document.getElementById('outlook').value:r.dir)+'\n'+
+    'Market Direction Signal: '+r.dir+' (based on live data)\n'+
     'News Sentiment: '+r.sent+'\n'+
+    'Price Change Today: '+(parseFloat(r.chgPct||0)>=0?'+':'')+parseFloat(r.chgPct||0).toFixed(2)+'%\n'+
     'Risk Tolerance: '+(r.risk||'Moderate')+'\n'+
     'Capital: '+(r.cap||'not specified')+'\n'+
+    conflictNote+
     'Recent News:\n'+(news||'none')+'\n\n'+
+    'IMPORTANT: If user outlook conflicts with market data, clearly say so and recommend based on MARKET DATA not user bias.\n\n'+
     'Respond with exactly these 8 numbered sections, 2-3 sentences each, specific numbers:\n'+
-    '1. VERDICT\n2. EXACT STRATEGY\n3. ENTRY DETAILS\n4. HOLD DURATION\n5. PROFIT TARGET\n6. STOP LOSS\n7. RISK ASSESSMENT\n8. KEY RISK TO WATCH';
+    '1. VERDICT (mention if outlook conflicts with market data)\n2. EXACT STRATEGY\n3. ENTRY DETAILS\n4. HOLD DURATION\n5. PROFIT TARGET\n6. STOP LOSS\n7. RISK ASSESSMENT\n8. KEY RISK TO WATCH';
 
   var txt='';
   try{
