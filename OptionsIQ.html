@@ -1041,8 +1041,13 @@ async function runAI(){
 
 // ════════ OPTION CHAIN ════════
 async function fetchOptionChain(){
-  var sym = document.getElementById('oc-symbol').value.trim().toUpperCase();
-  if(!sym){ alert('Enter a symbol e.g. SBIN, NIFTY, BANKNIFTY'); return; }
+  var raw = document.getElementById('oc-symbol').value.trim().toUpperCase();
+  if(!raw){ alert('Enter a symbol e.g. SBIN, NIFTY, BANKNIFTY'); return; }
+  // Clean symbol - remove spaces and get ticker only
+  var sym = raw.replace(/\s+/g,'').replace('.NS','').replace('.BO','');
+  // If user typed full name from search box e.g. "ICICI BANK (ICICIBANK.NS)" extract ticker
+  var match = raw.match(/\(([A-Z0-9\-\.]+)\)/);
+  if(match) sym = match[1].replace('.NS','').replace('.BO','');
   var strategy = document.getElementById('oc-strategy').value;
 
   document.getElementById('oc-loading').classList.remove('hidden');
