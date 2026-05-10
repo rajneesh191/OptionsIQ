@@ -286,6 +286,8 @@ td{padding:11px 12px;}
       <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
         <span style="font-size:11px;color:#4b5563;">Watchlist:</span>
         <button class="fb on" id="wl-nifty50" onclick="setWatchlist('NIFTY50',this)">Nifty 50</button>
+        <button class="fb" id="wl-nifty100" onclick="setWatchlist('NIFTY100',this)">Nifty 100</button>
+        <button class="fb" id="wl-fnoall" onclick="setWatchlist('FNOALL',this)">All F&amp;O</button>
         <button class="fb" id="wl-custom" onclick="setWatchlist('CUSTOM',this)">My Watchlist</button>
       </div>
     </div>
@@ -1828,6 +1830,50 @@ var NIFTY50_SCAN = [
   'APOLLOHOSP','BEL','HAL','BHARTIARTL','DIVISLAB'
 ];
 
+var NIFTY100_SCAN = [
+  'RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK','SBIN','HINDUNILVR','ITC',
+  'KOTAKBANK','LT','AXISBANK','BAJFINANCE','TATAMOTORS','TATASTEEL','MARUTI',
+  'NTPC','ONGC','SUNPHARMA','WIPRO','HCLTECH','ADANIENT','ADANIPORTS',
+  'JSWSTEEL','TITAN','DRREDDY','CIPLA','EICHERMOT','HEROMOTOCO','HINDALCO',
+  'BAJAJ-AUTO','TECHM','INDUSINDBK','ULTRACEMCO','COALINDIA','TATACONSUM',
+  'APOLLOHOSP','BEL','HAL','BHARTIARTL','DIVISLAB','HDFCLIFE','SBILIFE',
+  'BAJAJFINSV','GRASIM','ASIANPAINT','NESTLEIND','BRITANNIA','DABUR',
+  'GODREJCP','MARICO','COLPAL','PIDILITIND','HAVELLS','VOLTAS','DIXON',
+  'TATAPOWER','DLF','GODREJPROP','OBEROIRLTY','BANKBARODA','PNB','CANBK',
+  'INDIANB','FEDERALBNK','YESBANK','MUTHOOTFIN','CHOLAFIN','SHRIRAMFIN',
+  'LUPIN','AUROPHARMA','TORNTPHARM','GLENMARK','ALKEM',
+  'IOC','BPCL','HPCL','GAIL','ONGC',
+  'BHEL','SAIL','NATIONALUM','VEDL','HINDALCO','JSWSTEEL',
+  'IRCTC','IRFC','RECLTD','PFC','HUDCO',
+  'TVSMOTOR','ASHOKLEY','M&M','MOTHERSON','BHARATFORG',
+  'ZOMATO','JIOFIN','PAYTM','NYKAA','POLICYBZR',
+  'DEEPAKNTR','PIIND','SRF','UPL','COROMANDEL',
+  'BALRAMCHIN','APOLLOTYRE','MRF','CEAT'
+];
+
+var FNO_ALL_SCAN = [
+  'RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK','SBIN','HINDUNILVR','ITC',
+  'KOTAKBANK','LT','AXISBANK','BAJFINANCE','TATAMOTORS','TATASTEEL','MARUTI',
+  'NTPC','ONGC','SUNPHARMA','WIPRO','HCLTECH','ADANIENT','ADANIPORTS',
+  'JSWSTEEL','TITAN','DRREDDY','CIPLA','EICHERMOT','HEROMOTOCO','HINDALCO',
+  'BAJAJ-AUTO','TECHM','INDUSINDBK','ULTRACEMCO','COALINDIA','TATACONSUM',
+  'APOLLOHOSP','BEL','HAL','BHARTIARTL','DIVISLAB',
+  'HDFCLIFE','SBILIFE','BAJAJFINSV','GRASIM','ASIANPAINT','NESTLEIND',
+  'BRITANNIA','DABUR','GODREJCP','MARICO','COLPAL','PIDILITIND',
+  'HAVELLS','VOLTAS','DIXON','AMBER','TATAPOWER','DLF','GODREJPROP',
+  'BANKBARODA','PNB','CANBK','INDIANB','FEDERALBNK','YESBANK',
+  'MUTHOOTFIN','CHOLAFIN','SHRIRAMFIN','LUPIN','AUROPHARMA','TORNTPHARM',
+  'IOC','BPCL','HPCL','GAIL','BHEL','SAIL','NATIONALUM','VEDL',
+  'IRCTC','IRFC','RECLTD','PFC','TVSMOTOR','ASHOKLEY','M&M',
+  'MOTHERSON','BHARATFORG','ZOMATO','JIOFIN','DEEPAKNTR','PIIND',
+  'SRF','UPL','BALRAMCHIN','APOLLOTYRE','OBEROIRLTY','HUDCO',
+  'NAUKRI','DMART','PAYTM','POLICYBZR','NYKAA','ABFRL',
+  'GLENMARK','ALKEM','MRF','CEAT','COROMANDEL','JUBLFOOD',
+  'PAGEIND','MCDOWELL-N','UNITDSPR','RADICO','VBL',
+  'CONCOR','ADANIGREEN','ADANIPOWER','ATGL','ADANITRANS',
+  'POWERGRID','NHPC','SJVN','TORNTPOWER','CESC'
+];
+
 function toggleScanner(){
   if(scannerRunning){ stopScanner(); }
   else { startScanner(); }
@@ -1861,10 +1907,16 @@ function setScanFilter(f, btn){
 
 function setWatchlist(mode, btn){
   watchlistMode = mode;
-  document.getElementById('wl-nifty50').classList.toggle('on', mode==='NIFTY50');
-  document.getElementById('wl-custom').classList.toggle('on', mode==='CUSTOM');
+  ['wl-nifty50','wl-nifty100','wl-fnoall','wl-custom'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.classList.remove('on');
+  });
+  if(btn) btn.classList.add('on');
   document.getElementById('custom-wl-section').style.display = mode==='CUSTOM'?'block':'none';
   renderWLChips();
+  // Update scan count display
+  var list = mode==='NIFTY100'?NIFTY100_SCAN:mode==='FNOALL'?FNO_ALL_SCAN:mode==='CUSTOM'?customWatchlist:NIFTY50_SCAN;
+  document.getElementById('scan-status').textContent = '📋 '+list.length+' stocks selected';
 }
 
 function renderWLChips(){
@@ -1886,7 +1938,7 @@ function removeFromWatchlist(s){
 }
 
 async function scanNow(){
-  var list = watchlistMode==='CUSTOM' ? customWatchlist : NIFTY50_SCAN;
+  var list = watchlistMode==='NIFTY100'?NIFTY100_SCAN:watchlistMode==='FNOALL'?FNO_ALL_SCAN:watchlistMode==='CUSTOM'?customWatchlist:NIFTY50_SCAN;
   document.getElementById('scan-status').textContent = '🔄 Scanning '+list.length+' stocks...';
   document.getElementById('scan-status').style.color = '#ffd966';
 
@@ -1976,7 +2028,7 @@ function calcSignal(d, sym){
 }
 
 function renderScanGrid(){
-  var list = watchlistMode==='CUSTOM' ? customWatchlist : NIFTY50_SCAN;
+  var list = watchlistMode==='NIFTY100'?NIFTY100_SCAN:watchlistMode==='FNOALL'?FNO_ALL_SCAN:watchlistMode==='CUSTOM'?customWatchlist:NIFTY50_SCAN;
   var results = list.map(function(s){ return scanResults[s]; }).filter(Boolean);
   
   // Apply filter
