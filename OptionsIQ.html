@@ -93,10 +93,11 @@ td{padding:11px 12px;}
 
 <div class="tabs">
   <button class="tab on" onclick="showTab(0)">📊 Advisor</button>
-  <button class="tab" onclick="showTab(1)">🔗 Option Chain</button>
-  <button class="tab" onclick="showTab(2)">📋 Strategy Matrix</button>
-  <button class="tab" onclick="showTab(3)">🔢 Greeks</button>
-  <button class="tab" onclick="showTab(4)">✅ Framework</button>
+  <button class="tab" onclick="showTab(1)">📡 Live Scanner</button>
+  <button class="tab" onclick="showTab(2)">💰 Trade Calculator</button>
+  <button class="tab" onclick="showTab(3)">📋 Strategy Matrix</button>
+  <button class="tab" onclick="showTab(4)">🔢 Greeks</button>
+  <button class="tab" onclick="showTab(5)">✅ Framework</button>
 </div>
 
 <!-- TAB 0 -->
@@ -175,6 +176,7 @@ td{padding:11px 12px;}
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
       <button class="btn" onclick="doAnalyze()">📊 Analyze &amp; Get Recommendation</button>
       <button class="btnl" id="livebtn" onclick="doLiveFetch()">🔄 Fetch Live Data</button>
+      <button style="background:linear-gradient(135deg,#ff9f43,#ee5a24);color:#fff;border:none;padding:10px 20px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border-radius:8px;display:inline-flex;align-items:center;gap:6px;" onclick="fetchTechnical()">📈 Market Trend</button>
       <span id="livestatus2" style="font-size:12px;color:#374151;"></span>
     </div>
 
@@ -219,6 +221,26 @@ td{padding:11px 12px;}
     </div>
   </div>
 
+  <!-- TECHNICAL ANALYSIS STRIP -->
+  <div id="tech-strip" class="hidden" style="margin-bottom:14px;">
+    <div style="background:#0a0c10;border:1.5px solid #1f2435;border-radius:12px;padding:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        <div style="font-size:10px;font-weight:700;color:#ff9f43;letter-spacing:1.5px;">📈 MARKET TREND ANALYSIS (Technical Indicators)</div>
+        <div id="tech-updated" style="font-size:10px;color:#374151;"></div>
+      </div>
+
+      <!-- Market vs User View Comparison -->
+      <div id="trend-comparison" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;"></div>
+
+      <!-- Indicator Signals -->
+      <div style="font-size:10px;font-weight:700;color:#4b5563;letter-spacing:1px;margin-bottom:8px;">INDICATOR SIGNALS</div>
+      <div id="tech-signals" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px;margin-bottom:12px;"></div>
+
+      <!-- Technical Levels -->
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;" id="tech-levels"></div>
+    </div>
+  </div>
+
   <!-- NEWS SECTION -->
   <div id="newssec" class="hidden" style="margin-bottom:14px;">
     <div class="card">
@@ -238,124 +260,197 @@ td{padding:11px 12px;}
 </div>
 
 <!-- TAB 1: OPTION CHAIN -->
+<!-- TAB 1: LIVE SCANNER -->
 <div id="t1" class="page hidden">
-  <div style="margin-bottom:16px;">
-    <div class="sec">NSE Option Chain</div>
-    <h2 class="h2">Live Option Chain + Strike Price Recommendation</h2>
-    <p class="desc">Fetches live NSE option chain data. Shows OI, PCR, Max Pain, Support/Resistance and exact strike to trade.</p>
+  <div style="margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+    <div>
+      <div class="sec">Live Market Scanner</div>
+      <h2 class="h2">Real-Time Signals &amp; Recommendations</h2>
+      <p class="desc">Auto-scans Nifty 50 stocks every 30 seconds. Shows live price, trend, signal and exact strategy.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div id="scan-status" style="font-size:12px;font-weight:600;color:#374151;background:#13161e;border:1.5px solid #1f2435;padding:6px 12px;border-radius:8px;">⭕ Scanner Off</div>
+      <button class="btn" id="scan-btn" onclick="toggleScanner()">▶ Start Scanner</button>
+      <button class="btnl" onclick="scanNow()" style="padding:8px 16px;font-size:12px;">🔄 Scan Now</button>
+    </div>
   </div>
 
+  <!-- Filter Bar -->
+  <div style="background:#13161e;border:1.5px solid #1f2435;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <div style="font-size:11px;font-weight:700;color:#4b5563;letter-spacing:1px;">FILTER:</div>
+      <button class="fb on" onclick="setScanFilter('ALL',this)">All Signals</button>
+      <button class="fb" onclick="setScanFilter('BUY',this)">📈 Buy Signals</button>
+      <button class="fb" onclick="setScanFilter('SELL',this)">📉 Sell Signals</button>
+      <button class="fb" onclick="setScanFilter('NEUTRAL',this)">↔ Neutral</button>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <span style="font-size:11px;color:#4b5563;">Watchlist:</span>
+        <button class="fb on" id="wl-nifty50" onclick="setWatchlist('NIFTY50',this)">Nifty 50</button>
+        <button class="fb" id="wl-custom" onclick="setWatchlist('CUSTOM',this)">My Watchlist</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Watchlist -->
+  <div id="custom-wl-section" style="display:none;background:#13161e;border:1.5px solid #1f2435;border-radius:10px;padding:12px 16px;margin-bottom:14px;">
+    <div style="font-size:11px;font-weight:700;color:#ffd966;margin-bottom:8px;">MY WATCHLIST — Add stocks to scan</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;" id="wl-chips"></div>
+    <div style="display:flex;gap:8px;">
+      <input id="wl-add-input" placeholder="Add ticker e.g. SBIN, RELIANCE..." style="max-width:220px;padding:7px 10px;font-size:12px;" onkeydown="if(event.key==='Enter')addToWatchlist()">
+      <button class="btn" onclick="addToWatchlist()" style="padding:7px 14px;font-size:12px;">+ Add</button>
+    </div>
+  </div>
+
+  <!-- Scanner Grid -->
+  <div id="scanner-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:10px;margin-bottom:14px;">
+    <div style="grid-column:1/-1;text-align:center;padding:40px;background:#13161e;border:1.5px dashed #1f2435;border-radius:12px;">
+      <div style="font-size:24px;margin-bottom:8px;">📡</div>
+      <div style="font-size:14px;font-weight:600;color:#4b5563;">Click Start Scanner to begin live monitoring</div>
+      <div style="font-size:12px;color:#374151;margin-top:4px;">Requires server.py running • Updates every 30 seconds</div>
+    </div>
+  </div>
+
+  <!-- Top Opportunities -->
+  <div id="top-opps" class="hidden" style="margin-bottom:14px;">
+    <div style="font-size:10px;font-weight:700;color:#69ff9c;letter-spacing:1.5px;margin-bottom:10px;">🔥 TOP OPPORTUNITIES RIGHT NOW</div>
+    <div id="top-opps-list" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;"></div>
+  </div>
+
+  <!-- Last scan time -->
+  <div style="text-align:center;font-size:11px;color:#374151;" id="last-scan-time"></div>
+</div>
+
+<div id="t2" class="page hidden">
+  <div style="margin-bottom:16px;">
+    <div class="sec">Trade Calculator</div>
+    <h2 class="h2">Exact Trade Setup — Lots, P&L &amp; Payoff Graph</h2>
+    <p class="desc">Enter trade details to get exact lot size, cost, breakeven, max profit, max loss and a full payoff graph.</p>
+  </div>
+
+  <!-- INPUT FORM -->
   <div class="card" style="padding:20px;margin-bottom:14px;">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-      <div style="flex:1;min-width:200px;">
-        <label class="lbl">Stock / Index Symbol</label>
-        <input id="oc-symbol" placeholder="SBIN, RELIANCE, NIFTY, BANKNIFTY..." style="width:100%;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div>
+        <label class="lbl">Stock Symbol</label>
+        <input id="tc-symbol" placeholder="e.g. SBIN, NIFTY">
       </div>
       <div>
         <label class="lbl">Strategy</label>
-        <select id="oc-strategy" style="min-width:180px;">
-          <option value="buy_call">Buy Call (Bullish)</option>
-          <option value="buy_put">Buy Put (Bearish)</option>
+        <select id="tc-strategy" onchange="tcStratChange()">
+          <option value="long_call">Long Call (Buy Call)</option>
+          <option value="long_put">Long Put (Buy Put)</option>
           <option value="bull_call_spread">Bull Call Spread</option>
           <option value="bear_put_spread">Bear Put Spread</option>
-          <option value="iron_condor">Iron Condor (Neutral)</option>
-          <option value="straddle">Straddle (Volatile)</option>
+          <option value="iron_condor">Iron Condor</option>
+          <option value="straddle">Long Straddle</option>
+          <option value="strangle">Long Strangle</option>
+          <option value="covered_call">Covered Call</option>
         </select>
       </div>
-      <button class="btn" onclick="fetchOptionChain()">📡 Fetch Option Chain</button>
+      <div>
+        <label class="lbl">Spot Price (₹)</label>
+        <input id="tc-spot" placeholder="e.g. 1080" type="number">
+      </div>
+      <div>
+        <label class="lbl">Lot Size</label>
+        <input id="tc-lotsize" placeholder="e.g. 1500 for SBIN" type="number">
+      </div>
     </div>
-    <div style="margin-top:10px;font-size:12px;color:#4b5563;">
-      ⚠️ Requires <strong>server.py</strong> running. Works for all NSE stocks and indices (NIFTY, BANKNIFTY, SBIN, RELIANCE etc.)
+
+    <!-- Strategy specific inputs -->
+    <div id="tc-inputs" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px;">
+      <div>
+        <label class="lbl" id="lbl-s1">Buy Strike (₹)</label>
+        <input id="tc-s1" placeholder="e.g. 1080" type="number">
+      </div>
+      <div>
+        <label class="lbl" id="lbl-p1">Premium Paid (₹)</label>
+        <input id="tc-p1" placeholder="e.g. 21.50" type="number" step="0.05">
+      </div>
+      <div id="tc-s2-wrap">
+        <label class="lbl" id="lbl-s2">Sell Strike (₹)</label>
+        <input id="tc-s2" placeholder="e.g. 1100" type="number">
+      </div>
+      <div id="tc-p2-wrap">
+        <label class="lbl" id="lbl-p2">Premium Received (₹)</label>
+        <input id="tc-p2" placeholder="e.g. 12.00" type="number" step="0.05">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div>
+        <label class="lbl">No. of Lots</label>
+        <input id="tc-lots" placeholder="e.g. 1" type="number" value="1" min="1">
+      </div>
+      <div>
+        <label class="lbl">Current LTP of Option (₹)</label>
+        <input id="tc-ltp" placeholder="e.g. 25.00 (current market price)" type="number" step="0.05">
+      </div>
+      <div>
+        <label class="lbl">Avg Buy Price (₹) — if already in trade</label>
+        <input id="tc-avg" placeholder="e.g. 18.00 (your entry price)" type="number" step="0.05">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn" onclick="calcTrade()">📊 Calculate P&amp;L &amp; Payoff</button>
+      <button class="btnl" onclick="tcClear()">🔄 Clear</button>
+    </div>
+
+    <div style="margin-top:10px;font-size:12px;color:#4b5563;line-height:1.7;">
+      💡 <strong>Lot sizes:</strong> NIFTY=25, BANKNIFTY=15, SBIN=1500, RELIANCE=250, TCS=150, INFY=400, ICICIBANK=700, HDFCBANK=550
     </div>
   </div>
 
-  <!-- Key Metrics -->
-  <div id="oc-metrics" class="hidden" style="margin-bottom:14px;">
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px;">
-      <div class="card" style="text-align:center;">
-        <div class="ilbl" style="margin-bottom:4px;">Spot Price</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#fff;" id="oc-spot">—</div>
-      </div>
-      <div class="card" style="text-align:center;">
-        <div class="ilbl" style="margin-bottom:4px;">ATM Strike</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#69ff9c;" id="oc-atm">—</div>
-      </div>
-      <div class="card" style="text-align:center;">
-        <div class="ilbl" style="margin-bottom:4px;">PCR</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;" id="oc-pcr">—</div>
-        <div style="font-size:10px;color:#374151;" id="oc-pcr-signal">—</div>
-      </div>
-      <div class="card" style="text-align:center;">
-        <div class="ilbl" style="margin-bottom:4px;">Max Pain</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#ffd966;" id="oc-maxpain">—</div>
-      </div>
-      <div class="card" style="text-align:center;">
-        <div class="ilbl" style="margin-bottom:4px;">Support (Max Put OI)</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#69ff9c;" id="oc-support">—</div>
-      </div>
-      <div class="card" style="text-align:center;">
-        <div class="ilbl" style="margin-bottom:4px;">Resistance (Max Call OI)</div>
-        <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#ff6e6e;" id="oc-resist">—</div>
+  <!-- RESULTS -->
+  <div id="tc-result" class="hidden">
+    <!-- Summary Cards -->
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:14px;" id="tc-cards"></div>
+
+    <!-- P&L if already in trade -->
+    <div id="tc-pnl-section" class="hidden" style="margin-bottom:14px;">
+      <div class="card" style="border-left:3px solid #b388ff;">
+        <div style="font-size:10px;font-weight:700;color:#b388ff;letter-spacing:1px;margin-bottom:10px;">YOUR CURRENT P&amp;L (Based on Avg vs LTP)</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;" id="tc-pnl-cards"></div>
       </div>
     </div>
 
-    <!-- Strike Recommendation Box -->
-    <div id="oc-rec-box" style="background:#0a120d;border:2px solid #69ff9c;border-radius:12px;padding:18px;margin-bottom:12px;">
-      <div style="font-size:10px;font-weight:700;color:#69ff9c;letter-spacing:1.5px;margin-bottom:10px;">RECOMMENDED STRIKES FOR YOUR STRATEGY</div>
-      <div id="oc-rec-content"></div>
+    <!-- Payoff Table -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#69ff9c;letter-spacing:1.5px;margin-bottom:8px;">PAYOFF TABLE AT EXPIRY</div>
+        <div style="background:#13161e;border:1.5px solid #1f2435;border-radius:10px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead><tr style="background:#0f1119;">
+              <th style="padding:9px 12px;text-align:left;font-size:10px;color:#4b5563;font-weight:700;">Stock Price at Expiry</th>
+              <th style="padding:9px 12px;text-align:right;font-size:10px;color:#4b5563;font-weight:700;">P&amp;L per Lot (₹)</th>
+              <th style="padding:9px 12px;text-align:right;font-size:10px;color:#4b5563;font-weight:700;">Total P&amp;L (₹)</th>
+              <th style="padding:9px 12px;text-align:right;font-size:10px;color:#4b5563;font-weight:700;">Return %</th>
+            </tr></thead>
+            <tbody id="tc-table"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Payoff Graph -->
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#69ff9c;letter-spacing:1.5px;margin-bottom:8px;">PAYOFF GRAPH AT EXPIRY</div>
+        <div class="card" style="padding:10px;">
+          <canvas id="tc-canvas" width="480" height="300"></canvas>
+        </div>
+      </div>
     </div>
 
-    <!-- Expiry info -->
-    <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
-      <div style="font-size:12px;font-weight:600;color:#6b7280;">Expiry: <span id="oc-expiry" style="color:#d1d5db;">—</span></div>
-      <div style="font-size:12px;font-weight:600;color:#6b7280;">Next Expiry: <span id="oc-next-expiry" style="color:#d1d5db;">—</span></div>
-      <div style="font-size:12px;font-weight:600;color:#6b7280;">Total Call OI: <span id="oc-total-call" style="color:#ff6e6e;">—</span></div>
-      <div style="font-size:12px;font-weight:600;color:#6b7280;">Total Put OI: <span id="oc-total-put" style="color:#69ff9c;">—</span></div>
+    <!-- Trade Plan -->
+    <div class="card" style="border-left:3px solid #ffd966;">
+      <div style="font-size:10px;font-weight:700;color:#ffd966;letter-spacing:1.5px;margin-bottom:10px;">📋 COMPLETE TRADE PLAN</div>
+      <div id="tc-plan" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;"></div>
     </div>
-  </div>
-
-  <!-- Option Chain Table -->
-  <div id="oc-table-wrap" class="hidden">
-    <div style="font-size:10px;font-weight:700;color:#69ff9c;letter-spacing:1.5px;margin-bottom:8px;">FULL OPTION CHAIN</div>
-    <div style="overflow-x:auto;background:#13161e;border:1.5px solid #1f2435;border-radius:12px;">
-      <table id="oc-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:900px;">
-        <thead>
-          <tr style="background:#0f1119;">
-            <th colspan="5" style="text-align:center;padding:10px;font-size:11px;font-weight:700;color:#ff6e6e;letter-spacing:1px;border-bottom:1px solid #1f2435;border-right:2px solid #252a38;">CALLS</th>
-            <th style="text-align:center;padding:10px;font-size:11px;font-weight:700;color:#ffd966;letter-spacing:1px;border-bottom:1px solid #1f2435;border-left:2px solid #252a38;border-right:2px solid #252a38;">STRIKE</th>
-            <th colspan="5" style="text-align:center;padding:10px;font-size:11px;font-weight:700;color:#69ff9c;letter-spacing:1px;border-bottom:1px solid #1f2435;border-left:2px solid #252a38;">PUTS</th>
-          </tr>
-          <tr style="background:#0f1119;border-bottom:1.5px solid #1f2435;">
-            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#4b5563;">OI Chg</th>
-            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#4b5563;">OI</th>
-            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#4b5563;">IV%</th>
-            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#4b5563;">Vol</th>
-            <th style="text-align:right;padding:8px 10px;font-size:10px;color:#4b5563;border-right:2px solid #252a38;">LTP</th>
-            <th style="text-align:center;padding:8px 10px;font-size:10px;color:#ffd966;border-left:2px solid #252a38;border-right:2px solid #252a38;">STRIKE</th>
-            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#4b5563;border-left:2px solid #252a38;">LTP</th>
-            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#4b5563;">Vol</th>
-            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#4b5563;">IV%</th>
-            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#4b5563;">OI</th>
-            <th style="text-align:left;padding:8px 10px;font-size:10px;color:#4b5563;">OI Chg</th>
-          </tr>
-        </thead>
-        <tbody id="oc-tbody"></tbody>
-      </table>
-    </div>
-    <div style="font-size:11px;color:#374151;margin-top:8px;text-align:center;">
-      🟡 Yellow = ATM &nbsp;|&nbsp; 🔴 Red bar = High Call OI (Resistance) &nbsp;|&nbsp; 🟢 Green bar = High Put OI (Support)
-    </div>
-  </div>
-
-  <div id="oc-error" class="hidden" style="background:#1a0d0d;border:1.5px solid #3a1a1a;border-radius:10px;padding:14px;color:#ff9090;font-size:13px;"></div>
-  <div id="oc-loading" class="hidden" style="text-align:center;padding:40px;">
-    <div class="spin" style="width:20px;height:20px;border-width:3px;margin:0 auto 10px;"></div>
-    <div style="font-size:13px;color:#6b7280;" id="oc-loading-text">Fetching option chain from NSE...</div>
   </div>
 </div>
 
 <!-- TAB 2 -->
-<div id="t2" class="page hidden">
+<div id="t3" class="page hidden">
   <div style="margin-bottom:18px;">
     <div class="sec">Strategy Reference Matrix</div>
     <h2 class="h2">All Major Options Strategies</h2>
@@ -385,7 +480,7 @@ td{padding:11px 12px;}
 </div>
 
 <!-- TAB 2 -->
-<div id="t3" class="page hidden">
+<div id="t4" class="page hidden">
   <div style="margin-bottom:18px;">
     <div class="sec">Options Greeks</div>
     <h2 class="h2">Deep Dive into the Greeks</h2>
@@ -417,7 +512,7 @@ td{padding:11px 12px;}
 </div>
 
 <!-- TAB 3 -->
-<div id="t4" class="page hidden">
+<div id="t5" class="page hidden">
   <div style="margin-bottom:18px;">
     <div class="sec">Decision Framework</div>
     <h2 class="h2">6-Step Trade Selection Process</h2>
@@ -442,7 +537,7 @@ td{padding:11px 12px;}
 <script>
 // Tab switching - defined first so always available
 function showTab(n){
-  for(var i=0;i<5;i++){
+  for(var i=0;i<6;i++){
     var el=document.getElementById('t'+i);
     if(el){ el.style.display='none'; }
     var tb=document.querySelectorAll('.tab')[i];
@@ -452,6 +547,7 @@ function showTab(n){
   if(active){ active.style.display='block'; }
   var atab=document.querySelectorAll('.tab')[n];
   if(atab) atab.classList.add('on');
+  if(n===1 && !scannerRunning) startScanner();
 }
 
 // ════════════════════════════════════
@@ -518,6 +614,59 @@ var STOCKS=[
   {n:"Ashok Leyland",t:"ASHOKLEY.NS",e:"NSE",avgIV:35,notes:"Commercial vehicle maker. Higher IV. Sensitive to CV cycle and freight demand.",best:["Bull Call Spread","Cash-Secured Put","Straddle","Covered Call"],avoid:"Naked options — CV cycle can turn quickly"},
   {n:"Balrampur Chini Mills",t:"BALRAMCHIN.NS",e:"NSE",avgIV:42,notes:"Sugar sector. Very high IV. Seasonal and policy dependent — can move sharply.",best:["Bull Call Spread","Bear Put Spread","Straddle","Cash-Secured Put"],avoid:"Iron Condors — sugar policy changes cause large gaps"},
   {n:"Apollo Tyres",t:"APOLLOTYRE.NS",e:"NSE",avgIV:32,notes:"Tyre manufacturer. Moderate IV. Raw material prices and auto sector linked.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around rubber price spikes"},
+  // PSU & Infrastructure
+  {n:"BHEL (Bharat Heavy Electricals)",t:"BHEL.NS",e:"NSE",avgIV:38,notes:"PSU engineering giant. High IV. Capital goods sector. Moves on govt orders.",best:["Bull Call Spread","Cash-Secured Put","Straddle","Bear Put Spread"],avoid:"Iron Condors — order flow news causes sharp moves"},
+  {n:"SAIL (Steel Authority of India)",t:"SAIL.NS",e:"NSE",avgIV:40,notes:"Steel PSU. High IV. Commodity linked. Moves with steel prices.",best:["Bull Call Spread","Bear Put Spread","Straddle","Cash-Secured Put"],avoid:"Iron Condors — commodity driven"},
+  {n:"GAIL India",t:"GAIL.NS",e:"NSE",avgIV:30,notes:"Gas utility PSU. Moderate IV. Policy and gas price sensitive.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around gas price changes"},
+  {n:"Indian Oil Corporation",t:"IOC.NS",e:"NSE",avgIV:32,notes:"Oil refining PSU. Moderate IV. Oil price and govt subsidy linked.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Bear Put Spread"],avoid:"Naked options around fuel price revisions"},
+  {n:"BPCL (Bharat Petroleum)",t:"BPCL.NS",e:"NSE",avgIV:33,notes:"Oil refining PSU. Moderate IV. Privatisation news can cause big moves.",best:["Bull Call Spread","Cash-Secured Put","Straddle","Covered Call"],avoid:"Iron Condors — privatisation news creates gaps"},
+  {n:"HPCL (Hindustan Petroleum)",t:"HPCL.NS",e:"NSE",avgIV:33,notes:"Oil refining PSU. Moderate IV. Moves with crude oil prices.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around crude oil swings"},
+  {n:"IRCTC",t:"IRCTC.NS",e:"NSE",avgIV:35,notes:"Railway ticketing monopoly. Moderate-high IV. Policy and travel demand linked.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Straddle"],avoid:"Naked options around railway budget"},
+  {n:"IRFC (Indian Railway Finance)",t:"IRFC.NS",e:"NSE",avgIV:35,notes:"Railway financing PSU. Moderate IV. Budget and capex sensitive.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Iron Condor"],avoid:"Naked options around Union Budget"},
+  {n:"HUDCO",t:"HUDCO.NS",e:"NSE",avgIV:38,notes:"Housing finance PSU. Higher IV. Affordable housing policy sensitive.",best:["Bull Call Spread","Cash-Secured Put","Straddle","Covered Call"],avoid:"Iron Condors — policy news causes gaps"},
+  {n:"REC Ltd",t:"RECLTD.NS",e:"NSE",avgIV:35,notes:"Power finance PSU. Moderate IV. Interest rate and power sector linked.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around RBI rate decisions"},
+  {n:"PFC (Power Finance Corp)",t:"PFC.NS",e:"NSE",avgIV:35,notes:"Power sector lender. Moderate IV. Rate sensitive PSU.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around interest rate changes"},
+  // New F&O additions 2024
+  {n:"Zomato (Eternal)",t:"ZOMATO.NS",e:"NSE",avgIV:50,notes:"Food delivery giant. Very high IV. Profitability milestones cause big moves.",best:["Bull Call Spread","Bear Put Spread","Straddle","Cash-Secured Put"],avoid:"Naked options and Iron Condors — very volatile"},
+  {n:"DMart (Avenue Supermarts)",t:"DMART.NS",e:"NSE",avgIV:28,notes:"Retail chain. Low-moderate IV. Steady but high priced stock.",best:["Bull Call Spread","LEAPS","Cash-Secured Put","Covered Call"],avoid:"Naked puts — high share price needs large capital"},
+  {n:"Jio Financial Services",t:"JIOFIN.NS",e:"NSE",avgIV:40,notes:"Reliance fintech arm. High IV. New listing with high speculative interest.",best:["Bull Call Spread","Cash-Secured Put","Straddle","Bear Put Spread"],avoid:"Iron Condors — new stock with unpredictable moves"},
+  {n:"Paytm (One97 Communications)",t:"PAYTM.NS",e:"NSE",avgIV:60,notes:"Fintech. Very high IV. RBI actions and profitability news cause huge moves.",best:["Bull Call Spread","Bear Put Spread","Straddle","Cash-Secured Put"],avoid:"Naked options — can fall or rise 10-15% in a day"},
+  {n:"DLF Ltd",t:"DLF.NS",e:"NSE",avgIV:35,notes:"Real estate leader. Moderate-high IV. Property market and rate sensitive.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Straddle"],avoid:"Naked options around RBI rate decisions"},
+  {n:"Godrej Properties",t:"GODREJPROP.NS",e:"NSE",avgIV:33,notes:"Real estate. Moderate IV. Launches and interest rate sensitive.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Iron Condor"],avoid:"Naked options around rate changes"},
+  {n:"Oberoi Realty",t:"OBEROIRLTY.NS",e:"NSE",avgIV:32,notes:"Premium real estate. Moderate IV. Luxury property demand linked.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Speculative short-term plays"},
+  {n:"Suzlon Energy",t:"SUZLON.NS",e:"NSE",avgIV:55,notes:"Wind energy. Very high IV. Policy news and order wins cause huge moves.",best:["Bull Call Spread","Bear Put Spread","Straddle","Cash-Secured Put"],avoid:"Iron Condors and naked options — extremely volatile"},
+  {n:"Adani Power",t:"ADANIPOWER.NS",e:"NSE",avgIV:48,notes:"Adani group power company. High IV. Group news and power policy sensitive.",best:["Bull Call Spread","Bear Put Spread","Straddle","Cash-Secured Put"],avoid:"Naked options — Adani group news causes massive gaps"},
+  {n:"Adani Green Energy",t:"ADANIGREEN.NS",e:"NSE",avgIV:50,notes:"Renewable energy. Very high IV. Extremely sensitive to Adani group news.",best:["Bull Call Spread","Bear Put Spread","Straddle","Cash-Secured Put"],avoid:"Iron Condors — can gap 20%+ on group news"},
+  {n:"Adani Total Gas",t:"ATGL.NS",e:"NSE",avgIV:45,notes:"City gas distribution. High IV. Adani group and gas policy sensitive.",best:["Bull Call Spread","Cash-Secured Put","Straddle","Bear Put Spread"],avoid:"Naked options — Adani group volatility"},
+  {n:"Yes Bank",t:"YESBANK.NS",e:"NSE",avgIV:55,notes:"Private bank. Very high IV. Recovery play — highly speculative.",best:["Bull Call Spread","Bear Put Spread","Straddle","Cash-Secured Put"],avoid:"Naked options — can move 10%+ on news"},
+  {n:"PNB (Punjab National Bank)",t:"PNB.NS",e:"NSE",avgIV:38,notes:"PSU bank. Higher IV. NPA news and RBI policy sensitive.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Bear Put Spread"],avoid:"Iron Condors — PSU bank news volatile"},
+  {n:"Bank of Baroda",t:"BANKBARODA.NS",e:"NSE",avgIV:35,notes:"PSU bank. Moderate-high IV. Good for spreads during stable periods.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Iron Condor"],avoid:"Naked options around RBI policy"},
+  {n:"Canara Bank",t:"CANBK.NS",e:"NSE",avgIV:36,notes:"PSU bank. Moderate-high IV. Government ownership means policy sensitivity.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Bear Put Spread"],avoid:"Naked options around quarterly results"},
+  {n:"Muthoot Finance",t:"MUTHOOTFIN.NS",e:"NSE",avgIV:30,notes:"Gold loan NBFC. Moderate IV. Gold price and RBI policy sensitive.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around gold price spikes"},
+  {n:"Cholamandalam Finance",t:"CHOLAFIN.NS",e:"NSE",avgIV:32,notes:"Vehicle finance NBFC. Moderate IV. Auto sector and rate linked.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around rate changes"},
+  {n:"Shriram Finance",t:"SHRIRAMFIN.NS",e:"NSE",avgIV:30,notes:"Diversified NBFC. Moderate IV. Rate sensitive but stable.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around RBI meetings"},
+  {n:"M&M (Mahindra & Mahindra)",t:"M&M.NS",e:"NSE",avgIV:30,notes:"Auto and farm equipment. Moderate IV. Good for covered calls and spreads.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around monthly sales"},
+  {n:"Tata Power",t:"TATAPOWER.NS",e:"NSE",avgIV:38,notes:"Power and renewables. Moderate-high IV. Energy policy sensitive.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Straddle"],avoid:"Iron Condors — power policy news volatile"},
+  {n:"Torrent Pharmaceuticals",t:"TORNTPHARM.NS",e:"NSE",avgIV:28,notes:"Pharma. Moderate IV. Steady mover. Good for income strategies.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around USFDA news"},
+  {n:"Lupin Ltd",t:"LUPIN.NS",e:"NSE",avgIV:30,notes:"Pharma. Moderate IV. USFDA approvals can cause big moves.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Bear Put Spread"],avoid:"Iron Condors around USFDA decisions"},
+  {n:"Aurobindo Pharma",t:"AUROPHARMA.NS",e:"NSE",avgIV:32,notes:"Pharma. Moderate IV. US generics market sensitive.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Bear Put Spread"],avoid:"Naked options around USFDA inspections"},
+  {n:"Pidilite Industries",t:"PIDILITIND.NS",e:"NSE",avgIV:22,notes:"Adhesives and chemicals. Low IV. Very stable. Excellent for income.",best:["Covered Call","Cash-Secured Put","Iron Condor","Bull Call Spread"],avoid:"Speculative short-term plays — barely moves"},
+  {n:"Havells India",t:"HAVELLS.NS",e:"NSE",avgIV:26,notes:"Electricals and consumer durables. Moderate IV. Good for covered calls.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around quarterly results"},
+  {n:"Voltas Ltd",t:"VOLTAS.NS",e:"NSE",avgIV:28,notes:"AC and engineering. Moderate IV. Seasonal — strong summers boost sales.",best:["Bull Call Spread","Covered Call","Cash-Secured Put","Calendar Spread"],avoid:"Naked options — seasonal business"},
+  {n:"Crompton Greaves Consumer",t:"CROMPTON.NS",e:"NSE",avgIV:28,notes:"Consumer electricals. Moderate IV. Stable mover.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Speculative short-term trades"},
+  {n:"Dixon Technologies",t:"DIXON.NS",e:"NSE",avgIV:40,notes:"Electronics manufacturing. High IV. PLI scheme beneficiary — policy sensitive.",best:["Bull Call Spread","Cash-Secured Put","Straddle","Covered Call"],avoid:"Iron Condors — PLI news causes gaps"},
+  {n:"Amber Enterprises",t:"AMBER.NS",e:"NSE",avgIV:38,notes:"AC components manufacturer. High IV. Seasonal and policy sensitive.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Straddle"],avoid:"Iron Condors — seasonal volatility"},
+  {n:"Motherson Sumi Systems",t:"MOTHERSON.NS",e:"NSE",avgIV:35,notes:"Auto ancillary. Moderate-high IV. Global auto sector linked.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Bear Put Spread"],avoid:"Naked options around auto industry data"},
+  {n:"Bharat Forge",t:"BHARATFORG.NS",e:"NSE",avgIV:33,notes:"Forgings and defence. Moderate IV. Auto and defence sector linked.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around defence order news"},
+  {n:"SRF Ltd",t:"SRF.NS",e:"NSE",avgIV:28,notes:"Chemicals and packaging. Moderate IV. Steady industrial mover.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Speculative short-term trades"},
+  {n:"Deepak Nitrite",t:"DEEPAKNTR.NS",e:"NSE",avgIV:35,notes:"Specialty chemicals. Moderate-high IV. Chemical sector sensitive.",best:["Bull Call Spread","Cash-Secured Put","Covered Call","Bear Put Spread"],avoid:"Iron Condors — chemical cycle volatility"},
+  {n:"PI Industries",t:"PIIND.NS",e:"NSE",avgIV:28,notes:"Agrochemicals. Moderate IV. Monsoon and export order sensitive.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around monsoon season"},
+  {n:"Godrej Consumer Products",t:"GODREJCP.NS",e:"NSE",avgIV:22,notes:"FMCG. Low IV. Very stable consumer brand. Income strategies work best.",best:["Covered Call","Cash-Secured Put","Iron Condor","Bull Call Spread"],avoid:"Speculative short-term plays"},
+  {n:"Marico Ltd",t:"MARICO.NS",e:"NSE",avgIV:22,notes:"FMCG — Parachute, Saffola. Low IV. Stable. Good for income.",best:["Covered Call","Cash-Secured Put","Iron Condor","Bull Call Spread"],avoid:"Expecting explosive moves — rarely happens"},
+  {n:"Dabur India",t:"DABUR.NS",e:"NSE",avgIV:20,notes:"FMCG and Ayurveda. Low IV. Very stable. Best for covered calls.",best:["Covered Call","Cash-Secured Put","Iron Condor","Bull Call Spread"],avoid:"Speculative trades — very slow mover"},
+  {n:"Colgate-Palmolive India",t:"COLPAL.NS",e:"NSE",avgIV:20,notes:"Consumer goods. Very low IV. Extremely stable. Income strategies only.",best:["Covered Call","Cash-Secured Put","Iron Condor","Calendar Spread"],avoid:"Directional plays — barely moves"},
+  {n:"Page Industries",t:"PAGEIND.NS",e:"NSE",avgIV:25,notes:"Jockey brand apparel. Low-moderate IV. Premium consumer brand.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Speculative short-term plays"},
+  {n:"Jubilant FoodWorks",t:"JUBLFOOD.NS",e:"NSE",avgIV:30,notes:"Dominos Pizza India. Moderate IV. Consumer sentiment and same-store sales sensitive.",best:["Covered Call","Bull Call Spread","Cash-Secured Put","Iron Condor"],avoid:"Naked options around quarterly results"},
   // Keep existing
   {n:"NIFTY 50 Index",t:"^NSEI",e:"NSE Index",avgIV:15,notes:"India's benchmark index. Most liquid index options. Low IV ideal for iron condors.",best:["Iron Condor","Bull Call Spread","Covered Call","Calendar Spread"],avoid:"Paying high premium — Nifty IV is usually low"},
   {n:"BANK NIFTY Index",t:"^NSEBANK",e:"NSE Index",avgIV:18,notes:"Banking sector index. Higher IV than Nifty. Very liquid.",best:["Iron Condor","Bull Call Spread","Bear Put Spread","Straddle"],avoid:"Naked options — can gap on RBI decisions"},
@@ -645,15 +794,16 @@ var MARKET_DATA = null;
 // ── Check if local server is running ──
 async function checkServer() {
   try {
-    var ctrl = new AbortController();
-    var tid = setTimeout(function(){ctrl.abort();}, 3000);
-    var r = await fetch(LOCAL_SERVER + '/quote?symbol=AAPL', {signal: ctrl.signal});
-    clearTimeout(tid);
-    if (r.ok) { 
+    // Simple fetch without AbortSignal to avoid browser clone error
+    var r = await Promise.race([
+      fetch(LOCAL_SERVER + '/quote?symbol=AAPL'),
+      new Promise(function(_,rej){ setTimeout(function(){rej(new Error('timeout'));}, 3000); })
+    ]);
+    if (r.ok) {
       var d = await r.json();
       if(d && d.price) { serverAvailable = true; updateServerBadge(true); return true; }
     }
-  } catch(e) { console.log('Server check:', e.message); }
+  } catch(e) { /* server not available */ }
   serverAvailable = false;
   updateServerBadge(false);
   return false;
@@ -905,16 +1055,24 @@ function buildAnalysis(stock,outlook,ivrIn,risk,dte,cap,px,ld){
   var sent=ld?ld.sentLabel:'Unknown';
   var pchg=ld?ld.chgPct:0;
   var bp=0,rp=0;
-  // Your outlook carries weight but market data can override
-  if(outlook.includes('Bullish'))bp+=2;    // reduced from 3 - market data can counter
+  // User outlook
+  if(outlook.includes('Bullish'))bp+=2;
   if(outlook.includes('Bearish'))rp+=2;
   if(outlook.includes('Volatile')){bp+=1;rp+=1;}
-  // Live market sentiment - strong signal
-  if(sent==='Bullish'){bp+=3;}             // increased weight on real data
-  if(sent==='Bearish'){rp+=3;}
-  // Price momentum - real signal
+  // Live news sentiment
+  if(sent==='Bullish'){bp+=2;}
+  if(sent==='Bearish'){rp+=2;}
+  // Price momentum
   if(pchg>1)bp++;if(pchg>3)bp+=2;
   if(pchg<-1)rp++;if(pchg<-3)rp+=2;
+  // Technical indicators (highest weight — objective data)
+  if(ld && ld.mktTrend){
+    if(ld.mktTrend==='BULLISH'){ bp+=(ld.mktStrength==='STRONG'?4:2); }
+    else if(ld.mktTrend==='BEARISH'){ rp+=(ld.mktStrength==='STRONG'?4:2); }
+    if(ld.rsi && ld.rsi<35) bp+=2;
+    if(ld.rsi && ld.rsi>65) rp+=2;
+    if(ld.macdBull) bp+=1; else rp+=1;
+  }
   var dir=bp>rp+1?'Bullish':rp>bp+1?'Bearish':outlook.includes('Volatile')?'Volatile':'Neutral';
   
   // Detect conflict between user outlook and market data
@@ -1040,61 +1198,210 @@ async function runAI(){
   var r=LASTANALYSIS;
   var btn=document.getElementById('aibtn'),out=document.getElementById('aiout');
   if(!btn||!out)return;
-  btn.disabled=true;btn.innerHTML='<span class="spinp"></span> Thinking...';
-  out.innerHTML='<div style="color:#b388ff;font-size:12px;padding:8px 0;display:flex;align-items:center;gap:7px;"><span class="spinp"></span> Generating personalized recommendation...</div>';
+  btn.disabled=true; btn.innerHTML='<span class="spinp"></span> Thinking...';
+  out.innerHTML='<div style="color:#b388ff;font-size:12px;padding:8px 0;display:flex;align-items:center;gap:7px;"><span class="spinp"></span> Generating personalised recommendation...</div>';
 
-  var news=(r.news||[]).slice(0,4).map(function(n){return '- '+n.title+' ['+n.sent+']';}).join('\n');
-  var conflictNote = r.conflict ? 
-    '\n⚠️ IMPORTANT - OUTLOOK CONFLICT: User says '+
-    (LASTANALYSIS&&document.getElementById('outlook')?document.getElementById('outlook').value:'their outlook')+
-    ' but market data shows '+r.sent+' sentiment and price is '+
-    (parseFloat(r.chgPct||0)>=0?'+':'')+parseFloat(r.chgPct||0).toFixed(2)+'% today. '+
-    'Address this conflict directly in your verdict and recommend accordingly.\n' : '';
+  // Build rich context
+  var strat1 = r.top && r.top[0] ? r.top[0].name : 'Bull Call Spread';
+  var strat2 = r.top && r.top[1] ? r.top[1].name : 'Cash-Secured Put';
+  var strat3 = r.top && r.top[2] ? r.top[2].name : 'Iron Condor';
+  var stockName = r.stock ? (r.stock.n || r.stock.t || 'Unknown') : 'Unknown';
+  var ticker = r.stock ? r.stock.t.replace('.NS','').replace('.BO','') : '';
+  var userOutlook = document.getElementById('outlook') ? document.getElementById('outlook').value : r.dir;
+  var price = r.px ? parseFloat(r.px).toFixed(2) : 'N/A';
+  var chgPct = r.chgPct ? parseFloat(r.chgPct).toFixed(2) : '0';
+  var ivr = r.ivr || 35;
+  var ivEnv = r.ivHigh ? 'HIGH (above 50) — options are EXPENSIVE, selling premium has the edge' : 
+              r.ivLow  ? 'LOW (below 30) — options are CHEAP, buying premium is favorable' : 
+                         'MODERATE (30-50) — use spreads to balance cost and reward';
+  var sent = r.sent || 'Unknown';
+  var dir = r.dir || 'Neutral';
+  var risk = r.risk || 'Moderate';
+  var cap = r.cap || 'Not specified';
+  var dte = document.getElementById('dte') ? document.getElementById('dte').value : '21-45 days';
+  var conflict = r.conflict ? 'YES — User is '+userOutlook+' but market data shows '+dir : 'No conflict';
+  
+  // Strategy-specific context
+  var stratContext = {
+    'Long Call': 'Unlimited upside, pay premium upfront. Needs big bullish move. Theta hurts daily.',
+    'Long Put': 'Profit from big fall. Needs strong move below strike. Theta hurts daily.',
+    'Bull Call Spread': 'Buy lower call, sell upper call. Capped profit but reduced cost. Best for moderate bullish move.',
+    'Bear Put Spread': 'Buy upper put, sell lower put. Capped profit but reduced cost. Best for moderate bearish move.',
+    'Iron Condor': 'Sell call spread + put spread. Collect premium if stock stays in range. Theta helps daily.',
+    'Covered Call': 'Own stock, sell call against it. Collect income. Miss big upside.',
+    'Cash-Secured Put': 'Sell put, collect premium. Works if stock stays flat or rises. Assigned if falls.',
+    'Straddle': 'Buy ATM call + put. Profit from big move either direction. Very expensive.',
+    'Strangle': 'Buy OTM call + put. Cheaper than straddle but needs larger move.',
+    'LEAPS': 'Long-dated options 6-18 months out. Minimal theta. Stock replacement strategy.',
+    'Calendar Spread': 'Sell near-term, buy far-term same strike. Profit from theta and IV expansion.',
+    'Butterfly Spread': 'Max profit at middle strike. Very limited cost. Good for pinpoint price target.'
+  };
+  
+  var s1ctx = stratContext[strat1] || 'Fits current IV and market conditions.';
+  var s2ctx = stratContext[strat2] || 'Alternative strategy for current conditions.';
+  var s3ctx = stratContext[strat3] || 'Third option based on market setup.';
 
-  var prompt='You are a senior options trading advisor. Give a specific actionable recommendation.\n\n'+
-    'STOCK: '+r.stock.t.replace('.NS','')+(r.stock.n?' ('+r.stock.n+')':'')+'\n'+
-    'Price: '+(r.px||'not provided')+'\n'+
-    'IV Rank: '+r.ivr+' ('+(r.ivHigh?'HIGH — sell premium':r.ivLow?'LOW — buy premium':'MODERATE')+') \n'+
-    'User Outlook: '+(document.getElementById('outlook')?document.getElementById('outlook').value:r.dir)+'\n'+
-    'Market Direction Signal: '+r.dir+' (based on live data)\n'+
-    'News Sentiment: '+r.sent+'\n'+
-    'Price Change Today: '+(parseFloat(r.chgPct||0)>=0?'+':'')+parseFloat(r.chgPct||0).toFixed(2)+'%\n'+
-    'Risk Tolerance: '+(r.risk||'Moderate')+'\n'+
-    'Capital: '+(r.cap||'not specified')+'\n'+
-    conflictNote+
-    'Recent News:\n'+(news||'none')+'\n\n'+
-    'IMPORTANT: If user outlook conflicts with market data, clearly say so and recommend based on MARKET DATA not user bias.\n\n'+
-    'Respond with exactly these 8 numbered sections, 2-3 sentences each, specific numbers:\n'+
-    '1. VERDICT (mention if outlook conflicts with market data)\n2. EXACT STRATEGY\n3. ENTRY DETAILS\n4. HOLD DURATION\n5. PROFIT TARGET\n6. STOP LOSS\n7. RISK ASSESSMENT\n8. KEY RISK TO WATCH';
+  var news = (r.news||[]).slice(0,4).map(function(n){return '- '+n.title+' ['+n.sent+']';}).join('\n');
+
+  var prompt = 'You are an expert NSE/BSE options trading advisor with 20 years of experience. '+
+    'Give a SPECIFIC, DETAILED recommendation that is COMPLETELY DIFFERENT for each stock, strategy and market condition. '+
+    'NEVER give generic advice — always reference the exact stock, exact strikes, exact premiums and exact market conditions.\n\n'+
+
+    '=== LIVE MARKET DATA ===\n'+
+    'Stock: '+ticker+' ('+stockName+')\n'+
+    'Current Price: ₹'+price+'\n'+
+    'Today Change: '+chgPct+'%\n'+
+    'IV Rank: '+ivr+' — '+ivEnv+'\n'+
+    'News Sentiment: '+sent+' ('+r.bullS+' bullish, '+r.bearS+' bearish signals)\n'+
+    'Market Direction (from live data): '+dir+'\n\n'+
+
+    '=== USER INPUTS ===\n'+
+    'User Outlook: '+userOutlook+'\n'+
+    'Risk Tolerance: '+risk+'\n'+
+    'Capital Available: '+cap+'\n'+
+    'Preferred DTE: '+(dte||'not specified')+'\n'+
+    'Outlook vs Market Conflict: '+conflict+'\n\n'+
+
+    '=== APP RECOMMENDATIONS ===\n'+
+    '1st Choice: '+strat1+' — '+s1ctx+'\n'+
+    '2nd Choice: '+strat2+' — '+s2ctx+'\n'+
+    '3rd Choice: '+strat3+' — '+s3ctx+'\n'+
+    'Trade Signal: '+r.rec+'\n\n'+
+
+    '=== RECENT NEWS ===\n'+(news||'No recent news available')+'\n\n'+
+
+    'NOW WRITE A SPECIFIC RECOMMENDATION WITH THESE 8 SECTIONS.\n'+
+    'Rules: Be VERY specific to THIS stock and THIS situation. Mention actual ₹ strike prices based on current price ₹'+price+'. '+
+    'Give DIFFERENT advice for different strategies — do not repeat the same text. '+
+    'If IV is HIGH, emphasize selling premium and IV crush risk for buyers. '+
+    'If IV is LOW, emphasize buying opportunity and expansion potential. '+
+    'If there is an outlook conflict, directly address it and tell user what the market is actually saying.\n\n'+
+
+    '1. VERDICT\n'+
+    'State clearly: Should they trade NOW or WAIT? Is the app recommendation correct given live data? '+
+    'If user outlook conflicts with market — say so directly and explain why market data should be trusted.\n\n'+
+
+    '2. EXACT STRATEGY FOR '+ticker+'\n'+
+    'Which of the 3 strategies is BEST for this specific stock RIGHT NOW and why. '+
+    'Explain what makes '+ticker+' suitable or unsuitable for this strategy today.\n\n'+
+
+    '3. ENTRY DETAILS — SPECIFIC STRIKES\n'+
+    'Based on current price ₹'+price+', name the EXACT strikes to use. '+
+    'For example: "Buy ₹X Call, Sell ₹Y Call" with specific delta range. '+
+    'Mention which expiry week/month and why.\n\n'+
+
+    '4. HOLD DURATION\n'+
+    'Exact number of days to hold. When is the ideal exit time — before expiry or at expiry? '+
+    'Should they exit early if target hit or let it run?\n\n'+
+
+    '5. PROFIT TARGET\n'+
+    'State the EXACT % and ₹ amount to book profit. '+
+    'For premium selling: "close at 50% of credit collected". '+
+    'For premium buying: "exit when premium doubles" or "exit at 80% gain".\n\n'+
+
+    '6. STOP LOSS\n'+
+    'State the EXACT % and ₹ amount to cut losses. '+
+    'For long options: "exit if premium falls 40-50% from entry". '+
+    'For spreads: "exit if debit doubles". No ambiguity.\n\n'+
+
+    '7. RISK LEVEL FOR THIS TRADE TODAY\n'+
+    'Rate this trade: Low / Medium / High risk. '+
+    'Is NOW a good time or should they wait for a better setup? '+
+    'What would make this trade safer — any confirmation signals to wait for?\n\n'+
+
+    '8. ONE KEY THING TO WATCH\n'+
+    'The single most important factor for THIS specific trade on '+ticker+' right now. '+
+    'Could be: earnings date, support level, IV crush, RBI policy, sector news etc.\n\n'+
+
+    'Keep each section to 3-4 sentences. Use ₹ amounts throughout. Be direct and specific.';
 
   var txt='';
   try{
-    var res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,messages:[{role:'user',content:prompt}]})});
+    var res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1500,
+        messages:[{role:'user',content:prompt}]})
+    });
     var d=await res.json();
     if(d&&d.content&&d.content[0])txt=d.content[0].text||'';
-  }catch(e){}
+  }catch(e){console.log('AI error:',e);}
 
-  if(!txt){
-    var s=r.top[0];
-    txt='1. VERDICT\n'+r.rec+'. '+r.sigDetail+'\n\n'+
-      '2. EXACT STRATEGY\n'+(s?s.name:'Bull Call Spread')+'. '+(s?s.why:'Fits current IV and market conditions.')+' '+(r.ivHigh?'IV is elevated so selling premium gives you the edge.':'IV is low so buying is cost effective.')+'\n\n'+
-      '3. ENTRY DETAILS\n'+(r.ivHigh?'Sell the 30-45 DTE expiry. Use strikes 1 standard deviation OTM for iron condors or ATM for directional credit spreads.':'Buy the 45-60 DTE expiry. Target delta between 0.40 and 0.55 for balanced directional exposure.')+'\n\n'+
-      '4. HOLD DURATION\n'+r.hold+'. '+(r.ivHigh?'Close at 50% of max profit — time works in your favor so take gains early and redeploy.':'Exit if the directional thesis breaks — do not hold hoping for a reversal.')+'\n\n'+
-      '5. PROFIT TARGET\nExit at 50% of maximum profit for premium selling strategies. For debit spreads exit at 50-75% of the spread width. The last 50% of profit carries equal risk with much less reward.\n\n'+
-      '6. STOP LOSS\nExit at 2x the premium paid for long options. For short credit strategies exit at 2x the credit received. Set this rule before entering and never override it.\n\n'+
-      '7. RISK ASSESSMENT\n'+(r.ivHigh?'Conditions favor sellers. IV is elevated giving a statistical edge. Keep position at 2-5% of portfolio.':'Conditions favor buyers. IV is low making premium affordable. Main risk is insufficient price movement to overcome theta.')+'\n\n'+
-      '8. KEY RISK TO WATCH\n'+(r.stock.avoid?r.stock.avoid+'. ':'')+'Always check the earnings calendar before entering — earnings can cause sudden large IV changes that instantly affect your position.';
-  }
+  if(!txt) txt = localAIDetailed(r, strat1, strat2, price, ivr, userOutlook, dir, sent);
 
-  var fmt=txt
+  // Format nicely
+  var fmt = txt
     .replace(/\*\*(.*?)\*\*/g,'<strong style="color:#fff;">$1</strong>')
-    .replace(/^(\d+\.\s+[A-Z][A-Z\s]+)$/gm,'</p><div style="font-size:10px;font-weight:700;color:#b388ff;letter-spacing:1px;text-transform:uppercase;margin:12px 0 4px;">$1</div><p style="font-size:13px;color:#d1d5db;line-height:1.75;font-weight:500;">')
-    .replace(/\n\n/g,' ').replace(/\n/g,' ');
+    .replace(/^(\d+\.\s+[A-Z][A-Z\s\-\—]+)$/gm,
+      '</p><div style="font-size:10px;font-weight:700;color:#b388ff;letter-spacing:1.2px;text-transform:uppercase;margin:16px 0 5px;border-bottom:1px solid #252a38;padding-bottom:4px;">$1</div><p style="font-size:13px;color:#d1d5db;line-height:1.8;font-weight:500;">')
+    .replace(/\n\n/g,'</p><p style="font-size:13px;color:#d1d5db;line-height:1.8;font-weight:500;margin-top:6px;">')
+    .replace(/\n/g,' ');
 
-  out.innerHTML='<div style="border-top:1px solid #252a38;padding-top:12px;margin-top:6px;"><p style="font-size:13px;color:#d1d5db;line-height:1.75;font-weight:500;">'+fmt+'</p></div>';
-  btn.disabled=false;btn.innerHTML='🔄 Refresh AI Analysis';
+  out.innerHTML='<div style="border-top:1px solid #252a38;padding-top:14px;margin-top:8px;">'+
+    '<p style="font-size:13px;color:#d1d5db;line-height:1.8;font-weight:500;">'+fmt+'</p></div>';
+  btn.disabled=false; btn.innerHTML='🔄 Refresh AI Analysis';
 }
+
+function localAIDetailed(r, strat1, strat2, price, ivr, userOutlook, dir, sent){
+  var ticker = r.stock ? r.stock.t.replace('.NS','') : 'this stock';
+  var ivEnv = r.ivHigh ? 'HIGH' : r.ivLow ? 'LOW' : 'MODERATE';
+  var conflict = r.conflict;
+  var p = parseFloat(price)||0;
+  
+  // Calculate suggested strikes based on price
+  var step = p>10000?100:p>5000?50:p>1000?20:p>500?10:5;
+  var atmStrike = Math.round(p/step)*step;
+  var otmCallStrike = atmStrike + step*2;
+  var otmPutStrike  = atmStrike - step*2;
+  
+  var verdict = conflict ?
+    'CAUTION: Your '+userOutlook+' outlook conflicts with the market data showing '+dir+' signals. The market sentiment ('+sent+') should be trusted over personal bias. Consider waiting for price confirmation before entering a directional trade.' :
+    (dir==='Bullish' ? 'BUY CALL or BULL CALL SPREAD on '+ticker+'. Live data confirms bullish momentum with '+sent+' news sentiment. IV is '+ivEnv+' — '+(r.ivHigh?'use spreads to reduce cost, straight calls are expensive.':'options are affordable, direct calls are suitable.') :
+     dir==='Bearish' ? 'BUY PUT or BEAR PUT SPREAD on '+ticker+'. Live data shows bearish pressure with '+sent+' news. IV is '+ivEnv+' — '+(r.ivHigh?'put spreads reduce the high premium cost.':'puts are affordable, consider direct long puts.') :
+     'NEUTRAL setup on '+ticker+'. No strong directional signal. '+(r.ivHigh?'Sell an Iron Condor to collect elevated premium — this is the ideal trade when IV is high and direction is unclear.':'Use a Calendar Spread or wait for a clearer directional setup before entering.'));
+  
+  var entryDetail = strat1==='Bull Call Spread' ?
+    'Buy ₹'+atmStrike+' Call and Sell ₹'+otmCallStrike+' Call. Net debit should be around 30-40% of the spread width. Choose the current monthly expiry (3-4 weeks out) for best balance of time and cost.' :
+    strat1==='Bear Put Spread' ?
+    'Buy ₹'+atmStrike+' Put and Sell ₹'+otmPutStrike+' Put. Net debit should be 30-40% of spread width. Choose current monthly expiry.' :
+    strat1==='Iron Condor' ?
+    'Sell ₹'+otmCallStrike+' Call, Buy ₹'+(otmCallStrike+step*2)+' Call. Sell ₹'+otmPutStrike+' Put, Buy ₹'+(otmPutStrike-step*2)+' Put. Collect at least 30% of wing width as credit.' :
+    strat1==='Long Call' ?
+    'Buy ₹'+atmStrike+' Call at current IV of ~'+ivr+'%. Target delta of 0.45-0.55 for ATM exposure. Choose expiry 30-45 days out to balance time and cost.' :
+    strat1==='Long Put' ?
+    'Buy ₹'+atmStrike+' Put at current IV of ~'+ivr+'%. Target delta of -0.45 to -0.55. Choose expiry 30-45 days out.' :
+    'Enter at ₹'+atmStrike+' strike with current premium. Choose 30-45 DTE expiry for optimal time value.';
+
+  return '1. VERDICT\n'+verdict+'\n\n'+
+    '2. EXACT STRATEGY FOR '+ticker.toUpperCase()+'\n'+
+    strat1+' is the best fit for '+ticker+' right now. '+
+    (r.ivHigh?'IV Rank '+ivr+' is high — selling premium or using spreads reduces your cost versus buying outright.':
+               'IV Rank '+ivr+' is low — this is a good time to buy premium as options are cheap relative to history.')+
+    ' '+strat2+' is also viable as a fallback if you prefer '+(r.ivHigh?'more defined risk.':'lower cost exposure.')+'\n\n'+
+    '3. ENTRY DETAILS — SPECIFIC STRIKES\n'+entryDetail+'\n\n'+
+    '4. HOLD DURATION\n'+
+    (r.ivHigh?'Hold for 15-25 days. Close at 50% of maximum profit — do not hold to expiry. Time decay works for you so take gains early and redeploy capital.':
+              'Hold for 20-35 days. Give the directional move time to develop. Exit immediately if the stock breaks your thesis level, not when the premium decays.')+'\n\n'+
+    '5. PROFIT TARGET\n'+
+    (strat1.includes('Spread')||strat1==='Iron Condor'?
+      'Exit when you have captured 50% of the maximum possible profit on the spread. For a ₹20 wide spread with ₹8 debit, exit when it reaches ₹14 value. Do not wait for full expiry.':
+      r.ivHigh?'Since you are selling premium, close when 50% of credit is collected. This locks in profit early while avoiding gamma risk near expiry.':
+      'Target 80-100% gain on the premium paid. If you paid ₹20 premium, exit at ₹36-40. Alternatively exit if stock reaches ₹'+otmCallStrike+' (OTM strike level).')+'\n\n'+
+    '6. STOP LOSS\n'+
+    (strat1.includes('Long')||strat1==='Straddle'||strat1==='Strangle'?
+      'Exit immediately if the premium falls 40-50% from your entry price. If you paid ₹20, stop out at ₹10-12. Never average down on losing long options — time decay makes them worse every day.':
+      'Exit if the trade moves against you by 2x the credit received. For an Iron Condor collecting ₹8, exit if the position loses ₹16. This limits catastrophic losses.')+'\n\n'+
+    '7. RISK LEVEL FOR THIS TRADE TODAY\n'+
+    (conflict?'HIGH RISK — your personal view contradicts what live market data shows. Trading against the trend is dangerous. Wait for the market to confirm your view before entering. Look for '+
+      (userOutlook.includes('Bullish')?'a higher high and bullish price action':'a lower low and bearish price action')+' before entering.':
+      r.ivHigh?'MEDIUM risk. IV is elevated which favors sellers. Keep position size at 2-3% of portfolio. The main risk is a sudden large move that breaks your strikes.':
+      'MEDIUM risk. IV is low making entry affordable. Main risk is the stock not moving enough to overcome daily theta decay. Ensure you have a clear catalyst for the move.')+'\n\n'+
+    '8. ONE KEY THING TO WATCH\n'+
+    'Check the earnings calendar for '+ticker+' immediately — if earnings are within 14 days, IV will spike before and crush after. '+
+    (r.ivHigh?'With high IV, the biggest risk is IV crush — even if the stock moves in your direction, falling IV can hurt your long option value.':
+              'With low IV, watch for any upcoming catalysts like RBI policy, earnings, or sector news that could trigger the move you are expecting.')+
+    ' Always verify the next expiry date and make sure you have enough time for your thesis to play out.';
+}
+
 
 // ════════ OPTION CHAIN ════════
 async function fetchOptionChain(){
@@ -1114,22 +1421,109 @@ async function fetchOptionChain(){
   document.getElementById('oc-error').classList.add('hidden');
 
   try {
-    var r = await fetch(LOCAL_SERVER+'/optionchain?symbol='+encodeURIComponent(sym));
+    // First try with browser cookies (best for NSE)
+    var cookies = document.cookie;
+    var r;
+    if(cookies && cookies.length > 10){
+      r = await fetch(LOCAL_SERVER+'/nse-oc-cookie?symbol='+encodeURIComponent(sym)+'&cookies='+encodeURIComponent(cookies));
+    } else {
+      r = await fetch(LOCAL_SERVER+'/optionchain?symbol='+encodeURIComponent(sym));
+    }
     if(!r.ok) throw new Error('Server returned '+r.status+'. Make sure server.py is running.');
     var d = await r.json();
     if(d.error) throw new Error(d.error);
+    // Show source
+    if(d.warning){
+      document.getElementById('oc-loading-text').textContent = '⚠️ '+d.warning;
+    }
     renderOptionChain(d, strategy);
   } catch(e) {
     document.getElementById('oc-loading').classList.add('hidden');
     var errEl = document.getElementById('oc-error');
-    var onCloud = !LOCAL_SERVER.includes('localhost');
-    errEl.innerHTML = '<strong>Error:</strong> '+e.message+'<br><br>'+
-      (onCloud ? '' : 'Make sure <strong>server.py</strong> is running in CMD.<br>')+
-      '<strong>Use exact NSE symbols:</strong><br>'+
-      'Indices: NIFTY, BANKNIFTY &nbsp;|&nbsp; Stocks: SBIN, ICICIBANK, HDFCBANK, RELIANCE, TCS<br>'+
-      'US Stocks: AAPL, TSLA, SPY (always work)';
+    var isNSEBlock = e.message && (e.message.includes('NSE') || e.message.includes('blocking') || e.message.includes('bot'));
+    errEl.innerHTML = 
+      '<strong>⚠ '+( isNSEBlock ? 'NSE Bot Protection Active' : 'Error')+':</strong> '+e.message+'<br><br>'+
+      '<strong>Fix options (try in order):</strong><br>'+
+      '&nbsp;&nbsp;1️⃣ Wait 60 seconds and click <strong>Fetch Option Chain</strong> again<br>'+
+      '&nbsp;&nbsp;2️⃣ Restart <strong>server.py</strong> in CMD, then retry<br>'+
+      '&nbsp;&nbsp;3️⃣ Try US stocks: <strong>AAPL, TSLA, SPY</strong> — always work<br>'+
+      '&nbsp;&nbsp;4️⃣ For indices type exactly: <strong>NIFTY</strong> or <strong>BANKNIFTY</strong><br><br>'+
+      '<div id="oc-retry-bar" style="display:flex;align-items:center;gap:10px;margin-top:6px;">'+
+        '<button onclick="startRetryTimer()" style="background:#69ff9c;color:#0a0f0d;border:none;padding:8px 16px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;">⏱ Auto-retry in 60s</button>'+
+        '<span id="oc-timer" style="font-size:12px;color:#6b7280;"></span>'+
+      '</div>';
     errEl.classList.remove('hidden');
   }
+}
+
+function useManualData(){
+  var sym   = document.getElementById('oc-symbol').value.trim().toUpperCase()||'NIFTY';
+  var spot  = parseFloat(document.getElementById('manual-spot').value)||0;
+  var atm   = parseFloat(document.getElementById('manual-atm').value)||spot;
+  var pcr   = parseFloat(document.getElementById('manual-pcr').value)||1.0;
+  var expiry= document.getElementById('manual-expiry').value||'Current expiry';
+  var supp  = parseFloat(document.getElementById('manual-support').value)||0;
+  var resist= parseFloat(document.getElementById('manual-resist').value)||0;
+  var maxp  = parseFloat(document.getElementById('manual-maxpain').value)||atm;
+  var ceLtp = parseFloat(document.getElementById('manual-ce-ltp').value)||0;
+  var peLtp = parseFloat(document.getElementById('manual-pe-ltp').value)||0;
+  var ceIV  = parseFloat(document.getElementById('manual-ce-iv').value)||15;
+  var strategy = document.getElementById('oc-strategy').value;
+
+  if(!spot||!atm){ alert('Please enter at least Spot Price and ATM Strike.'); return; }
+
+  // Build synthetic option chain around ATM
+  var step = atm>10000?100:atm>5000?50:atm>1000?20:10;
+  var chain=[];
+  for(var i=-8;i<=8;i++){
+    var strike=atm+i*step;
+    var dist=Math.abs(i)/8;
+    var base_oi=Math.round(500000*Math.exp(-dist*3));
+    chain.push({
+      strike:strike,
+      ce_oi:i>=0?base_oi:Math.round(base_oi*0.4),
+      ce_ltp:i===0?ceLtp:(i<0?Math.round((ceLtp+(atm-strike))*100)/100:Math.max(0.5,Math.round(ceLtp*Math.exp(-dist*2)*100)/100)),
+      ce_iv:ceIV+Math.abs(i)*0.5,
+      ce_chg_oi:0,ce_vol:Math.round(base_oi/10),
+      pe_oi:i<=0?base_oi:Math.round(base_oi*0.4),
+      pe_ltp:i===0?peLtp:(i>0?Math.round((peLtp+(strike-atm))*100)/100:Math.max(0.5,Math.round(peLtp*Math.exp(-dist*2)*100)/100)),
+      pe_iv:ceIV+Math.abs(i)*0.5,
+      pe_chg_oi:0,pe_vol:Math.round(base_oi/10)
+    });
+  }
+
+  var d={
+    symbol:sym,spot:spot,expiry:expiry,nextExpiry:null,
+    atm:atm,pcr:pcr,maxPain:maxp,
+    support:supp||atm-step*3,resistance:resist||atm+step*3,
+    recStrikes:{atm:atm,otm_call:atm+step,otm_put:atm-step},
+    atmRow:{strike:atm,ce_ltp:ceLtp,ce_iv:ceIV,pe_ltp:peLtp,pe_iv:ceIV,
+            ce_oi:500000,pe_oi:500000,ce_vol:50000,pe_vol:50000,ce_chg_oi:0,pe_chg_oi:0},
+    chain:chain,totalCallOI:0,totalPutOI:0,
+    source:'Manual Entry',
+    warning:'Data entered manually from NSE website. OI values are estimated.'
+  };
+
+  document.getElementById('manual-oc-section').style.display='none';
+  document.getElementById('oc-error').classList.add('hidden');
+  renderOptionChain(d, strategy);
+}
+
+function startRetryTimer(){
+  var btn = document.querySelector('#oc-retry-bar button');
+  var timer = document.getElementById('oc-timer');
+  if(btn) btn.disabled = true;
+  var secs = 60;
+  var interval = setInterval(function(){
+    secs--;
+    if(timer) timer.textContent = secs + 's remaining...';
+    if(secs <= 0){
+      clearInterval(interval);
+      if(timer) timer.textContent = 'Retrying now...';
+      fetchOptionChain();
+    }
+  }, 1000);
+  if(timer) timer.textContent = secs + 's remaining...';
 }
 
 function fmtOI(n){ if(!n) return '—'; if(n>=10000000) return (n/10000000).toFixed(1)+'Cr'; if(n>=100000) return (n/100000).toFixed(1)+'L'; if(n>=1000) return (n/1000).toFixed(1)+'K'; return n; }
@@ -1291,6 +1685,618 @@ function strikeCard(title, color, strikes, footer){
       '<div style="font-size:12px;color:#9ca3af;">'+footer+'</div>'+
     '</div></div>';
 }
+
+// ════════ TECHNICAL ANALYSIS ════════
+async function fetchTechnical(){
+  if(!SELECTEDSTOCK){ alert('Please select a stock first.'); return; }
+  var ticker = SELECTEDSTOCK.t;
+  var userOutlook = document.getElementById('outlook')?document.getElementById('outlook').value:'';
+
+  // Show loading
+  document.getElementById('tech-strip').classList.remove('hidden');
+  document.getElementById('tech-signals').innerHTML='<div style="color:#ff9f43;font-size:12px;display:flex;align-items:center;gap:7px;"><span class="spin" style="border-top-color:#ff9f43;"></span> Fetching technical indicators...</div>';
+  document.getElementById('trend-comparison').innerHTML='';
+  document.getElementById('tech-levels').innerHTML='';
+
+  try{
+    var r = await fetch(LOCAL_SERVER+'/technical?symbol='+encodeURIComponent(ticker));
+    if(!r.ok) throw new Error('Server error '+r.status);
+    var d = await r.json();
+    if(d.error) throw new Error(d.error);
+    renderTechnical(d, userOutlook);
+  }catch(e){
+    document.getElementById('tech-signals').innerHTML=
+      '<div style="color:#ff9090;font-size:12px;">Error: '+e.message+'. Make sure server.py is running.</div>';
+  }
+}
+
+function renderTechnical(d, userOutlook){
+  document.getElementById('tech-updated').textContent='Updated: '+new Date().toLocaleTimeString();
+
+  // Market trend color
+  var mc = d.market_color||'#ffd966';
+  var userColor = '#6b7280';
+  var userTrend = 'Not Set';
+  var agreement = 'UNKNOWN';
+  var agreeColor = '#6b7280';
+  var agreeMsg = '';
+
+  if(userOutlook){
+    if(userOutlook.includes('Bullish')){ userTrend='BULLISH'; userColor='#69ff9c'; }
+    else if(userOutlook.includes('Bearish')){ userTrend='BEARISH'; userColor='#ff6e6e'; }
+    else { userTrend='NEUTRAL'; userColor='#ffd966'; }
+
+    if(userTrend===d.market_trend){
+      agreement='ALIGNED ✅'; agreeColor='#69ff9c';
+      agreeMsg='Your view matches market technicals — '+d.market_strength+' confirmation. Good time to trade.';
+    } else if(userTrend==='NEUTRAL'||d.market_trend==='NEUTRAL'){
+      agreement='PARTIAL ⚠️'; agreeColor='#ffd966';
+      agreeMsg='Mixed signals. Use defined-risk spreads only. Wait for clearer direction.';
+    } else {
+      agreement='CONFLICT ❌'; agreeColor='#ff6e6e';
+      agreeMsg='Your '+userTrend+' view conflicts with '+d.market_trend+' market technicals. Market data should be trusted over personal bias. Consider waiting.';
+    }
+  }
+
+  // Comparison cards
+  document.getElementById('trend-comparison').innerHTML=
+    '<div style="background:#0d0f14;border:2px solid '+mc+';border-radius:10px;padding:14px;text-align:center;">'+
+      '<div style="font-size:10px;font-weight:700;color:#4b5563;letter-spacing:1px;margin-bottom:6px;">MARKET SAYS (Technical)</div>'+
+      '<div style="font-size:22px;font-weight:800;color:'+mc+';font-family:\'Space Grotesk\',sans-serif;">'+d.market_trend+'</div>'+
+      '<div style="font-size:11px;font-weight:700;color:'+mc+';margin-top:4px;">'+d.market_strength+' signal</div>'+
+      '<div style="margin-top:8px;background:'+mc+'18;border-radius:6px;padding:4px 8px;">'+
+        '<div style="font-size:10px;color:'+mc+';font-weight:600;">Bull Score: '+d.bull_score+' | Bear Score: '+d.bear_score+'</div>'+
+        '<div style="height:6px;background:#1f2435;border-radius:3px;margin-top:4px;overflow:hidden;">'+
+          '<div style="height:100%;width:'+d.bull_pct+'%;background:linear-gradient(90deg,#69ff9c,#ffd966);border-radius:3px;"></div>'+
+        '</div>'+
+        '<div style="display:flex;justify-content:space-between;font-size:9px;color:#374151;margin-top:2px;"><span>Bearish 0%</span><span>'+d.bull_pct+'% Bullish</span><span>100%</span></div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:#9ca3af;margin-top:8px;line-height:1.5;">'+d.market_detail+'</div>'+
+    '</div>'+
+    '<div style="background:#0d0f14;border:2px solid '+(userTrend==='BULLISH'?'#69ff9c':userTrend==='BEARISH'?'#ff6e6e':'#ffd966')+';border-radius:10px;padding:14px;">'+
+      '<div style="text-align:center;margin-bottom:10px;">'+
+        '<div style="font-size:10px;font-weight:700;color:#4b5563;letter-spacing:1px;margin-bottom:6px;">YOUR VIEW</div>'+
+        '<div style="font-size:22px;font-weight:800;color:'+userColor+';font-family:\'Space Grotesk\',sans-serif;">'+(userOutlook||'Not Selected')+'</div>'+
+      '</div>'+
+      '<div style="background:'+agreeColor+'18;border:1.5px solid '+agreeColor+'44;border-radius:8px;padding:10px;margin-top:8px;">'+
+        '<div style="font-size:12px;font-weight:700;color:'+agreeColor+';margin-bottom:4px;">'+agreement+'</div>'+
+        '<div style="font-size:11px;color:#9ca3af;line-height:1.5;">'+agreeMsg+'</div>'+
+      '</div>'+
+      '<div style="margin-top:10px;background:#0a120d;border-radius:8px;padding:8px;">'+
+        '<div style="font-size:10px;font-weight:700;color:#ff9f43;margin-bottom:3px;">RECOMMENDED STRATEGY</div>'+
+        '<div style="font-size:13px;font-weight:700;color:#fff;">'+d.rec_strategy+'</div>'+
+        '<div style="font-size:11px;color:#6b7280;margin-top:2px;">Based on market technicals + IV environment</div>'+
+      '</div>'+
+    '</div>';
+
+  // Individual signals
+  document.getElementById('tech-signals').innerHTML=(d.signals||[]).map(function(s){
+    return '<div style="background:#0d0f14;border:1.5px solid '+s.color+'33;border-left:3px solid '+s.color+';border-radius:8px;padding:10px 12px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'+
+        '<span style="font-size:10px;font-weight:700;color:#4b5563;letter-spacing:1px;">'+s.indicator+'</span>'+
+        '<span style="font-size:11px;font-weight:700;color:'+s.color+';background:'+s.color+'18;padding:2px 8px;border-radius:20px;">'+s.value+'</span>'+
+      '</div>'+
+      '<div style="font-size:12px;font-weight:700;color:'+s.color+';margin-bottom:3px;">'+s.signal+'</div>'+
+      '<div style="font-size:11px;color:#6b7280;line-height:1.4;">'+s.detail+'</div>'+
+    '</div>';
+  }).join('');
+
+  // Technical levels
+  function lvl(label,val,col){
+    return '<div style="background:#0d0f14;border:1px solid #1f2435;border-top:2px solid '+col+';border-radius:8px;padding:10px;text-align:center;">'+
+      '<div style="font-size:9px;font-weight:700;color:#4b5563;letter-spacing:1px;margin-bottom:4px;">'+label+'</div>'+
+      '<div style="font-size:13px;font-weight:700;color:'+col+';">₹'+parseFloat(val).toFixed(2)+'</div></div>';
+  }
+  document.getElementById('tech-levels').innerHTML=
+    lvl('EMA 20',d.ema20,'#00e5ff')+
+    lvl('EMA 50',d.ema50,'#b388ff')+
+    lvl('EMA 200',d.ema200,'#ffd966')+
+    lvl('BB Upper',d.bb_high,'#ff6e6e')+
+    lvl('BB Lower',d.bb_low,'#69ff9c')+
+    lvl('ATR (Volatility)',d.atr,'#9ca3af');
+
+  // Auto re-run analysis with market trend incorporated
+  if(SELECTEDSTOCK){
+    // Update LIVEDATA with technical trend
+    if(!LIVEDATA) LIVEDATA={};
+    LIVEDATA.mktTrend = d.market_trend;
+    LIVEDATA.mktStrength = d.market_strength;
+    LIVEDATA.rsi = d.rsi;
+    LIVEDATA.macdBull = d.macd_hist > 0;
+    // Re-run analysis
+    doAnalyze();
+  }
+}
+
+
+// ════════ LIVE SCANNER ════════
+var scannerRunning = false;
+var scannerTimer = null;
+var scanFilter = 'ALL';
+var watchlistMode = 'NIFTY50';
+var customWatchlist = ['SBIN','RELIANCE','ICICIBANK','HDFCBANK','TCS'];
+var scanResults = {};
+var scanQueue = [];
+var scanIdx = 0;
+
+var NIFTY50_SCAN = [
+  'RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK','SBIN','HINDUNILVR','ITC',
+  'KOTAKBANK','LT','AXISBANK','BAJFINANCE','TATAMOTORS','TATASTEEL','MARUTI',
+  'NTPC','ONGC','SUNPHARMA','WIPRO','HCLTECH','ADANIENT','ADANIPORTS',
+  'JSWSTEEL','TITAN','DRREDDY','CIPLA','EICHERMOT','HEROMOTOCO','HINDALCO',
+  'BAJAJ-AUTO','TECHM','INDUSINDBK','ULTRACEMCO','COALINDIA','TATACONSUM',
+  'APOLLOHOSP','BEL','HAL','BHARTIARTL','DIVISLAB'
+];
+
+function toggleScanner(){
+  if(scannerRunning){ stopScanner(); }
+  else { startScanner(); }
+}
+
+function startScanner(){
+  scannerRunning = true;
+  document.getElementById('scan-btn').innerHTML = '⏹ Stop Scanner';
+  document.getElementById('scan-btn').style.background = 'linear-gradient(135deg,#ff6e6e,#cc3333)';
+  document.getElementById('scan-status').textContent = '🟢 Scanner Running';
+  document.getElementById('scan-status').style.color = '#69ff9c';
+  scanNow();
+  scannerTimer = setInterval(scanNow, 30000);
+}
+
+function stopScanner(){
+  scannerRunning = false;
+  clearInterval(scannerTimer);
+  document.getElementById('scan-btn').innerHTML = '▶ Start Scanner';
+  document.getElementById('scan-btn').style.background = '';
+  document.getElementById('scan-status').textContent = '⭕ Scanner Off';
+  document.getElementById('scan-status').style.color = '#374151';
+}
+
+function setScanFilter(f, btn){
+  scanFilter = f;
+  document.querySelectorAll('#t1 .fb').forEach(function(b){ if(['All Signals','📈 Buy Signals','📉 Sell Signals','↔ Neutral'].some(function(t){return b.textContent.includes(t.replace(/[📈📉↔]/g,'').trim());})) b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderScanGrid();
+}
+
+function setWatchlist(mode, btn){
+  watchlistMode = mode;
+  document.getElementById('wl-nifty50').classList.toggle('on', mode==='NIFTY50');
+  document.getElementById('wl-custom').classList.toggle('on', mode==='CUSTOM');
+  document.getElementById('custom-wl-section').style.display = mode==='CUSTOM'?'block':'none';
+  renderWLChips();
+}
+
+function renderWLChips(){
+  document.getElementById('wl-chips').innerHTML = customWatchlist.map(function(s){
+    return '<span style="background:#161921;border:1.5px solid #252a38;color:#d1d5db;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:5px;">'+s+
+      '<span onclick="removeFromWatchlist(\''+s+'\')" style="cursor:pointer;color:#ff6e6e;font-weight:700;margin-left:2px;">×</span></span>';
+  }).join('');
+}
+
+function addToWatchlist(){
+  var v = document.getElementById('wl-add-input').value.trim().toUpperCase().replace('.NS','');
+  if(v && !customWatchlist.includes(v)){ customWatchlist.push(v); renderWLChips(); }
+  document.getElementById('wl-add-input').value = '';
+}
+
+function removeFromWatchlist(s){
+  customWatchlist = customWatchlist.filter(function(x){return x!==s;});
+  renderWLChips();
+}
+
+async function scanNow(){
+  var list = watchlistMode==='CUSTOM' ? customWatchlist : NIFTY50_SCAN;
+  document.getElementById('scan-status').textContent = '🔄 Scanning '+list.length+' stocks...';
+  document.getElementById('scan-status').style.color = '#ffd966';
+
+  // Fetch all stocks in batches of 5
+  for(var i=0; i<list.length; i+=5){
+    var batch = list.slice(i, i+5);
+    await Promise.all(batch.map(function(sym){ return fetchScanData(sym); }));
+    renderScanGrid();
+    await new Promise(function(r){setTimeout(r,300);});
+  }
+
+  document.getElementById('scan-status').textContent = '🟢 Live — '+list.length+' stocks';
+  document.getElementById('scan-status').style.color = '#69ff9c';
+  document.getElementById('last-scan-time').textContent = 'Last updated: '+new Date().toLocaleTimeString();
+  renderTopOpps();
+}
+
+async function fetchScanData(sym){
+  try{
+    var r = await fetch(LOCAL_SERVER+'/quote?symbol='+encodeURIComponent(sym+'.NS'));
+    if(!r.ok) return;
+    var d = await r.json();
+    if(!d||!d.price) return;
+    
+    // Calculate signal
+    var signal = calcSignal(d, sym);
+    scanResults[sym] = {
+      sym: sym,
+      name: d.name || sym,
+      price: d.price,
+      chg: d.change || 0,
+      chgPct: d.changePct || 0,
+      ivr: d.ivrEst || 35,
+      signal: signal.signal,
+      signalColor: signal.color,
+      strategy: signal.strategy,
+      reason: signal.reason,
+      strength: signal.strength,
+      updatedAt: new Date().toLocaleTimeString()
+    };
+  }catch(e){}
+}
+
+function calcSignal(d, sym){
+  var chg = parseFloat(d.changePct)||0;
+  var ivr = d.ivrEst||35;
+  var ivHigh = ivr>50, ivLow = ivr<30;
+  
+  // Trend detection
+  var trend = chg > 1.5 ? 'STRONG_UP' : chg > 0.5 ? 'UP' : chg < -1.5 ? 'STRONG_DOWN' : chg < -0.5 ? 'DOWN' : 'FLAT';
+  
+  var signal, color, strategy, reason, strength;
+  
+  if(trend==='STRONG_UP'||trend==='UP'){
+    if(ivHigh){
+      signal='📈 BUY CALL SPREAD'; color='#69ff9c'; strength=trend==='STRONG_UP'?'STRONG':'MODERATE';
+      strategy='Bull Call Spread';
+      reason='Up '+chg.toFixed(2)+'% today. IV high ('+ivr+') — use spread to reduce cost.';
+    }else{
+      signal='📈 BUY CALL'; color='#69ff9c'; strength=trend==='STRONG_UP'?'STRONG':'MODERATE';
+      strategy='Long Call';
+      reason='Up '+chg.toFixed(2)+'% today. IV low ('+ivr+') — options are cheap, buy calls.';
+    }
+  } else if(trend==='STRONG_DOWN'||trend==='DOWN'){
+    if(ivHigh){
+      signal='📉 BUY PUT SPREAD'; color='#ff6e6e'; strength=trend==='STRONG_DOWN'?'STRONG':'MODERATE';
+      strategy='Bear Put Spread';
+      reason='Down '+chg.toFixed(2)+'% today. IV high ('+ivr+') — use spread to cut premium cost.';
+    }else{
+      signal='📉 BUY PUT'; color='#ff6e6e'; strength=trend==='STRONG_DOWN'?'STRONG':'MODERATE';
+      strategy='Long Put';
+      reason='Down '+Math.abs(chg).toFixed(2)+'% today. IV low ('+ivr+') — puts are cheap.';
+    }
+  } else {
+    if(ivHigh){
+      signal='↔️ SELL IRON CONDOR'; color='#ffd966'; strength='MODERATE';
+      strategy='Iron Condor';
+      reason='Flat today. IV high ('+ivr+') — ideal to sell premium and collect theta.';
+    } else {
+      signal='↔️ WATCH'; color='#6b7280'; strength='WEAK';
+      strategy='Wait';
+      reason='No clear direction. IV low ('+ivr+') — wait for momentum before entering.';
+    }
+  }
+  
+  return {signal,color,strategy,reason,strength};
+}
+
+function renderScanGrid(){
+  var list = watchlistMode==='CUSTOM' ? customWatchlist : NIFTY50_SCAN;
+  var results = list.map(function(s){ return scanResults[s]; }).filter(Boolean);
+  
+  // Apply filter
+  if(scanFilter==='BUY') results = results.filter(function(r){ return r.signal.includes('BUY CALL')||r.signal.includes('BUY CALL SPREAD'); });
+  if(scanFilter==='SELL') results = results.filter(function(r){ return r.signal.includes('BUY PUT')||r.signal.includes('BUY PUT SPREAD'); });
+  if(scanFilter==='NEUTRAL') results = results.filter(function(r){ return r.signal.includes('CONDOR')||r.signal.includes('WATCH'); });
+  
+  if(!results.length){
+    document.getElementById('scanner-grid').innerHTML = 
+      '<div style="grid-column:1/-1;text-align:center;padding:30px;background:#13161e;border:1.5px dashed #1f2435;border-radius:12px;">'+
+      '<div style="font-size:13px;color:#4b5563;">'+(Object.keys(scanResults).length===0?'Loading scan data...':'No stocks match the current filter')+'</div></div>';
+    return;
+  }
+  
+  // Sort by strength then % change
+  results.sort(function(a,b){
+    var sv={'STRONG':3,'MODERATE':2,'WEAK':1};
+    return (sv[b.strength]||0)-(sv[a.strength]||0)||(Math.abs(b.chgPct)-Math.abs(a.chgPct));
+  });
+  
+  document.getElementById('scanner-grid').innerHTML = results.map(function(r){
+    var chgCol = r.chgPct>=0?'#69ff9c':'#ff6e6e';
+    var ivrCol = r.ivr>50?'#ff6e6e':r.ivr<30?'#69ff9c':'#ffd966';
+    var strengthBg = r.strength==='STRONG'?'#1a3a1a':r.strength==='MODERATE'?'#1a1a2a':'#13161e';
+    return '<div style="background:'+strengthBg+';border:1.5px solid '+(r.strength==='STRONG'?r.signalColor+'44':'#1f2435')+';border-radius:12px;padding:14px;cursor:pointer;" onclick="quickAnalyze(\''+r.sym+'\')">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">'+
+        '<div>'+
+          '<div style="font-size:13px;font-weight:700;color:#fff;">'+r.sym+'</div>'+
+          '<div style="font-size:11px;color:#6b7280;margin-top:1px;">'+r.name+'</div>'+
+        '</div>'+
+        '<div style="text-align:right;">'+
+          '<div style="font-size:14px;font-weight:700;color:#fff;">₹'+parseFloat(r.price).toLocaleString('en-IN',{maximumFractionDigits:2})+'</div>'+
+          '<div style="font-size:12px;font-weight:700;color:'+chgCol+';">'+(r.chgPct>=0?'+':'')+parseFloat(r.chgPct).toFixed(2)+'%</div>'+
+        '</div>'+
+      '</div>'+
+      '<div style="font-size:13px;font-weight:700;color:'+r.signalColor+';margin-bottom:6px;">'+r.signal+'</div>'+
+      '<div style="font-size:11px;color:#9ca3af;line-height:1.5;margin-bottom:8px;">'+r.reason+'</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+        '<div style="font-size:10px;font-weight:700;color:'+ivrCol+';background:'+ivrCol+'18;border:1px solid '+ivrCol+'44;padding:2px 8px;border-radius:20px;">IVR: '+r.ivr+'</div>'+
+        '<div style="font-size:10px;font-weight:700;color:'+(r.strength==='STRONG'?'#69ff9c':r.strength==='MODERATE'?'#ffd966':'#6b7280')+
+          ';background:#0d0f14;padding:2px 8px;border-radius:20px;border:1px solid #252a38;">'+r.strength+'</div>'+
+        '<div style="font-size:10px;color:#374151;">'+r.updatedAt+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+function renderTopOpps(){
+  var all = Object.values(scanResults);
+  var strong = all.filter(function(r){return r.strength==='STRONG';})
+    .sort(function(a,b){return Math.abs(b.chgPct)-Math.abs(a.chgPct);})
+    .slice(0,3);
+  
+  if(!strong.length){ document.getElementById('top-opps').classList.add('hidden'); return; }
+  
+  document.getElementById('top-opps').classList.remove('hidden');
+  document.getElementById('top-opps-list').innerHTML = strong.map(function(r){
+    return '<div style="background:#0a0f0a;border:2px solid '+r.signalColor+';border-radius:12px;padding:14px;cursor:pointer;" onclick="quickAnalyze(\''+r.sym+'\')">'+
+      '<div style="font-size:10px;font-weight:700;color:'+r.signalColor+';letter-spacing:1px;margin-bottom:6px;">🔥 STRONG SIGNAL</div>'+
+      '<div style="display:flex;justify-content:space-between;margin-bottom:6px;">'+
+        '<span style="font-family:\'Space Grotesk\',sans-serif;font-size:18px;font-weight:700;color:#fff;">'+r.sym+'</span>'+
+        '<span style="font-size:16px;font-weight:700;color:'+(r.chgPct>=0?'#69ff9c':'#ff6e6e')+'">'+(r.chgPct>=0?'+':'')+parseFloat(r.chgPct).toFixed(2)+'%</span>'+
+      '</div>'+
+      '<div style="font-size:13px;font-weight:700;color:'+r.signalColor+';margin-bottom:5px;">'+r.signal+'</div>'+
+      '<div style="font-size:12px;color:#9ca3af;">'+r.reason+'</div>'+
+      '<div style="font-size:11px;font-weight:600;color:'+r.signalColor+';margin-top:8px;text-align:center;background:'+r.signalColor+'18;padding:5px;border-radius:6px;">Click to analyze in Advisor tab →</div>'+
+    '</div>';
+  }).join('');
+}
+
+function quickAnalyze(sym){
+  // Switch to advisor tab and prefill
+  showTab(0);
+  var searchEl = document.getElementById('searchinp');
+  if(searchEl){
+    searchEl.value = sym;
+    onSearch();
+    // Auto-select first result after short delay
+    setTimeout(function(){
+      var firstSugg = document.querySelector('.suggestion');
+      if(firstSugg) firstSugg.click();
+      else {
+        // Manual select
+        var found = STOCKS.find(function(s){return s.t.replace('.NS','')===sym||s.n===sym;});
+        if(found) { SELECTEDSTOCK=found; document.getElementById('searchinp').value=found.n+' ('+found.t.replace('.NS','')+')'; }
+      }
+      setTimeout(function(){ doLiveFetch(); }, 500);
+    }, 300);
+  }
+}
+
+
+
+// ════════ TRADE CALCULATOR ════════
+var LOT_SIZES = {
+  'NIFTY':25,'BANKNIFTY':15,'FINNIFTY':40,'MIDCPNIFTY':50,'SENSEX':10,
+  'RELIANCE':250,'TCS':150,'HDFCBANK':550,'INFY':400,'ICICIBANK':700,
+  'SBIN':1500,'HINDUNILVR':300,'ITC':1600,'KOTAKBANK':400,'LT':450,
+  'AXISBANK':625,'BAJFINANCE':125,'TATAMOTORS':900,'TATASTEEL':5500,
+  'MARUTI':50,'NTPC':3750,'ONGC':1925,'SUNPHARMA':350,'WIPRO':1500,
+  'HCLTECH':350,'ADANIENT':250,'JSWSTEEL':675,'TITAN':375,'DRREDDY':125,
+  'CIPLA':650,'EICHERMOT':125,'HEROMOTOCO':300,'HINDALCO':1075,
+  'ULTRACEMCO':100,'COALINDIA':2100,'APOLLOHOSP':125,'BEL':2800,'HAL':150,
+  'NATIONALUM':8500,'VEDL':2100,'INDIANB':600,'FEDERALBNK':5000,
+  'TVSMOTOR':350,'ASHOKLEY':3500,'BHEL':2800,'SAIL':4300,'GAIL':3850,
+  'IOC':3500,'BPCL':1800,'IRCTC':375,'IRFC':4000,'RECLTD':1500,'PFC':1500,
+  'ZOMATO':2000,'DMART':75,'JIOFIN':1750,'DLF':1650,'SUZLON':18000,
+  'YESBANK':20000,'PNB':3500,'BANKBARODA':2925,'CANBK':1925,'TATAPOWER':2700,
+  'LUPIN':425,'AUROPHARMA':650,'DIXON':100,'HAVELLS':500,'DABUR':1250,
+  'MARICO':1400,'COLPAL':500,'PIDILITIND':200,'GODREJCP':500
+};
+
+function tcStratChange(){
+  var s=document.getElementById('tc-strategy').value;
+  var s2w=document.getElementById('tc-s2-wrap');
+  var p2w=document.getElementById('tc-p2-wrap');
+  var labels={
+    long_call:['Call Strike','Call Premium Paid',null,null],
+    long_put:['Put Strike','Put Premium Paid',null,null],
+    bull_call_spread:['Buy Call Strike','Buy Premium Paid','Sell Call Strike','Sell Premium Received'],
+    bear_put_spread:['Buy Put Strike','Buy Premium Paid','Sell Put Strike','Sell Premium Received'],
+    iron_condor:['ATM Strike','Total Credit Received','Wing Width',''],
+    straddle:['ATM Strike','Call Premium Paid',null,'Put Premium Paid'],
+    strangle:['Call Strike','Call Premium Paid','Put Strike','Put Premium Paid'],
+    covered_call:['Sell Call Strike','Premium Received',null,null]
+  };
+  var lb=labels[s]||labels.long_call;
+  document.getElementById('lbl-s1').textContent=lb[0]+' (₹)';
+  document.getElementById('lbl-p1').textContent=lb[1]+' (₹)';
+  if(lb[2]){s2w.style.display='';document.getElementById('lbl-s2').textContent=lb[2]+' (₹)';}
+  else s2w.style.display='none';
+  if(lb[3]){p2w.style.display='';document.getElementById('lbl-p2').textContent=lb[3]+' (₹)';}
+  else p2w.style.display='none';
+}
+
+function tcClear(){
+  ['tc-symbol','tc-spot','tc-s1','tc-p1','tc-s2','tc-p2','tc-ltp','tc-avg','tc-lotsize'].forEach(function(id){
+    var el=document.getElementById(id);if(el)el.value='';
+  });
+  document.getElementById('tc-lots').value='1';
+  document.getElementById('tc-result').classList.add('hidden');
+}
+
+function calcTrade(){
+  var sym  =document.getElementById('tc-symbol').value.trim().toUpperCase().replace('.NS','');
+  var strat=document.getElementById('tc-strategy').value;
+  var spot =parseFloat(document.getElementById('tc-spot').value)||0;
+  var s1   =parseFloat(document.getElementById('tc-s1').value)||0;
+  var p1   =parseFloat(document.getElementById('tc-p1').value)||0;
+  var s2   =parseFloat(document.getElementById('tc-s2').value)||0;
+  var p2   =parseFloat(document.getElementById('tc-p2').value)||0;
+  var lots =parseInt(document.getElementById('tc-lots').value)||1;
+  var ltp  =parseFloat(document.getElementById('tc-ltp').value)||0;
+  var avg  =parseFloat(document.getElementById('tc-avg').value)||0;
+  var lotEl=document.getElementById('tc-lotsize');
+  var lotSize=parseInt(lotEl.value)||(LOT_SIZES[sym]||100);
+  if(!lotEl.value&&LOT_SIZES[sym]){lotEl.value=LOT_SIZES[sym];lotSize=LOT_SIZES[sym];}
+  if(!s1||!p1){alert('Please enter Strike and Premium.');return;}
+
+  function payoff(price){
+    if(strat==='long_call')        return Math.max(0,price-s1)-p1;
+    if(strat==='long_put')         return Math.max(0,s1-price)-p1;
+    if(strat==='bull_call_spread') return Math.min(Math.max(0,price-s1),s2-s1)-(p1-p2);
+    if(strat==='bear_put_spread')  return Math.min(Math.max(0,s1-price),s1-s2)-(p1-p2);
+    if(strat==='straddle')         return Math.max(0,price-s1)+Math.max(0,s1-price)-(p1+p2);
+    if(strat==='strangle')         return Math.max(0,price-s1)+Math.max(0,s2-price)-(p1+p2);
+    if(strat==='iron_condor'){
+      var wing=s2||50,credit=p1;
+      var sc=spot?spot+wing:s1+wing,sp=spot?spot-wing:s1-wing;
+      var pnl=credit;
+      if(price>s1)pnl-=Math.min(price-s1,wing);
+      if(price<s1)pnl-=Math.min(s1-price,wing);
+      return pnl;
+    }
+    if(strat==='covered_call')return Math.min(price-spot,s1-spot)+p1;
+    return 0;
+  }
+
+  var netCost=strat==='long_call'||strat==='long_put'?p1:
+    strat==='straddle'?p1+p2:strat==='strangle'?p1+p2:
+    strat==='bull_call_spread'||strat==='bear_put_spread'?p1-p2:p1;
+  var totalCost=Math.abs(netCost)*lotSize*lots;
+
+  var be1=strat==='long_call'?s1+p1:strat==='long_put'?s1-p1:
+    strat==='bull_call_spread'?s1+(p1-p2):strat==='bear_put_spread'?s1-(p1-p2):
+    strat==='straddle'||strat==='iron_condor'?s1+p1:strat==='strangle'?s1+p1+p2:s1-p1+p2;
+  var be2=strat==='straddle'?s1-(p1+p2):strat==='strangle'?s2-p1-p2:
+    strat==='iron_condor'?s1-p1:0;
+  var maxP=strat==='bull_call_spread'?(s2-s1-(p1-p2))*lotSize*lots:
+    strat==='bear_put_spread'?(s1-s2-(p1-p2))*lotSize*lots:
+    strat==='iron_condor'?p1*lotSize*lots:
+    strat==='covered_call'?(s1-spot+p1)*lotSize*lots:Infinity;
+  var maxL=strat==='covered_call'?(spot-p1)*lotSize*lots:totalCost;
+
+  function card(l,v,c){
+    return '<div class="card" style="text-align:center;border-top:2px solid '+c+';">'+
+      '<div style="font-size:10px;font-weight:700;color:#4b5563;letter-spacing:1px;margin-bottom:4px;">'+l+'</div>'+
+      '<div style="font-size:14px;font-weight:700;color:'+c+';">'+v+'</div></div>';
+  }
+
+  document.getElementById('tc-cards').innerHTML=
+    card('LOT SIZE',lotSize+' shares','#69ff9c')+
+    card('TOTAL LOTS',lots,'#69ff9c')+
+    card('TOTAL SHARES',(lotSize*lots).toLocaleString('en-IN'),'#00e5ff')+
+    card('TOTAL COST','₹'+totalCost.toLocaleString('en-IN',{maximumFractionDigits:0}),'#ffd966')+
+    card('BREAKEVEN',be2?'₹'+be2.toFixed(0)+' / ₹'+be1.toFixed(0):'₹'+be1.toFixed(0),'#b388ff')+
+    card('MAX LOSS','₹'+maxL.toLocaleString('en-IN',{maximumFractionDigits:0}),'#ff6e6e');
+
+  if(avg>0&&ltp>0){
+    var pps=(ltp-avg)*lotSize*lots,pct=pps/(avg*lotSize*lots)*100;
+    var col=pps>=0?'#69ff9c':'#ff6e6e';
+    document.getElementById('tc-pnl-cards').innerHTML=
+      card('AVG BUY','₹'+avg.toFixed(2),'#6b7280')+
+      card('CURRENT LTP','₹'+ltp.toFixed(2),'#00e5ff')+
+      card('P&L/SHARE',(pps/lotSize/lots>=0?'+':'')+'₹'+(pps/lotSize/lots).toFixed(2),col)+
+      card('TOTAL P&L',(pps>=0?'+':'−')+'₹'+Math.abs(pps).toLocaleString('en-IN',{maximumFractionDigits:0}),col)+
+      card('RETURN %',(pct>=0?'+':'')+pct.toFixed(2)+'%',col);
+    document.getElementById('tc-pnl-section').classList.remove('hidden');
+  }else{document.getElementById('tc-pnl-section').classList.add('hidden');}
+
+  // Payoff table
+  var ref=spot||s1;
+  var step=ref>10000?500:ref>5000?200:ref>1000?20:ref>500?10:5;
+  var rows=[],pd=[],pnld=[];
+  for(var i=-10;i<=10;i++){
+    var price=Math.round((ref+i*step)/step)*step;
+    if(price<=0)continue;
+    var po=payoff(price)*lotSize*lots;
+    var ret=totalCost>0?(po/totalCost*100):0;
+    var isSp=i===0;
+    var isBe=Math.abs(price-be1)<step/2||(be2&&Math.abs(price-be2)<step/2);
+    var c=po>=0?'#69ff9c':'#ff6e6e';
+    rows.push('<tr style="border-bottom:1px solid #1a1f2e;'+(isSp?'background:#1a1e10;':'')+'">'+
+      '<td style="padding:7px 12px;font-size:12px;font-weight:'+(isSp||isBe?'700':'500')+';color:'+(isSp?'#ffd966':isBe?'#b388ff':'#d1d5db')+';">₹'+price+(isSp?' ◄ SPOT':isBe?' ◄ B/E':'')+'</td>'+
+      '<td style="padding:7px 12px;text-align:right;font-size:12px;font-weight:600;color:'+c+';">'+(po>=0?'+':'')+'₹'+Math.abs(po/lots).toLocaleString('en-IN',{maximumFractionDigits:0})+'</td>'+
+      '<td style="padding:7px 12px;text-align:right;font-size:12px;font-weight:700;color:'+c+';">'+(po>=0?'+':'−')+'₹'+Math.abs(po).toLocaleString('en-IN',{maximumFractionDigits:0})+'</td>'+
+      '<td style="padding:7px 12px;text-align:right;font-size:12px;color:'+c+';">'+(ret>=0?'+':'')+ret.toFixed(1)+'%</td></tr>');
+    pd.push(price);pnld.push(po);
+  }
+  document.getElementById('tc-table').innerHTML=rows.join('');
+
+  // Canvas graph
+  var canvas=document.getElementById('tc-canvas');
+  var ctx=canvas.getContext('2d');
+  var W=canvas.width,H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0d0f14';ctx.fillRect(0,0,W,H);
+  var pad={l:65,r:15,t:20,b:35};
+  var gW=W-pad.l-pad.r,gH=H-pad.t-pad.b;
+  var minPrc=pd[0],maxPrc=pd[pd.length-1];
+  var minY=Math.min(Math.min.apply(null,pnld),0)*1.1;
+  var maxY=Math.max(Math.max.apply(null,pnld),0)*1.1;
+  if(minY===maxY){minY-=1000;maxY+=1000;}
+  function gx(p){return pad.l+(p-minPrc)/(maxPrc-minPrc)*gW;}
+  function gy(v){return pad.t+gH-(v-minY)/(maxY-minY)*gH;}
+
+  // Grid
+  ctx.strokeStyle='#1f2435';ctx.lineWidth=0.5;
+  for(var g=0;g<=4;g++){ctx.beginPath();ctx.moveTo(pad.l,pad.t+g*gH/4);ctx.lineTo(W-pad.r,pad.t+g*gH/4);ctx.stroke();}
+  // Zero line
+  ctx.strokeStyle='#374151';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(pad.l,gy(0));ctx.lineTo(W-pad.r,gy(0));ctx.stroke();
+  // Spot line
+  ctx.strokeStyle='#ffd96655';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(gx(ref),pad.t);ctx.lineTo(gx(ref),pad.t+gH);ctx.stroke();
+  ctx.setLineDash([]);
+  // Payoff line
+  ctx.lineWidth=2.5;
+  for(var i=0;i<pd.length-1;i++){
+    ctx.strokeStyle=pnld[i]>=0?'#69ff9c':'#ff6e6e';
+    ctx.beginPath();ctx.moveTo(gx(pd[i]),gy(pnld[i]));ctx.lineTo(gx(pd[i+1]),gy(pnld[i+1]));ctx.stroke();
+  }
+  // Fill
+  ctx.globalAlpha=0.12;
+  ctx.beginPath();ctx.moveTo(gx(pd[0]),gy(0));
+  pd.forEach(function(p,i){ctx.lineTo(gx(p),gy(pnld[i]));});
+  ctx.lineTo(gx(pd[pd.length-1]),gy(0));ctx.closePath();
+  ctx.fillStyle='#69ff9c';ctx.fill();
+  ctx.globalAlpha=1;
+  // Labels
+  ctx.fillStyle='#4b5563';ctx.font='10px Inter';ctx.textAlign='right';
+  [0,1,2,3,4].forEach(function(i){
+    var v=minY+i*(maxY-minY)/4;
+    var lbl=Math.abs(v)>=100000?(v/100000).toFixed(1)+'L':Math.abs(v)>=1000?(v/1000).toFixed(0)+'K':v.toFixed(0);
+    ctx.fillText((v>=0?'':'−')+'₹'+Math.abs(parseFloat(lbl)),pad.l-4,gy(v)+4);
+  });
+  ctx.textAlign='center';
+  [0,Math.floor(pd.length/4),Math.floor(pd.length/2),Math.floor(pd.length*3/4),pd.length-1].forEach(function(i){
+    if(pd[i])ctx.fillText('₹'+pd[i],gx(pd[i]),H-6);
+  });
+  ctx.fillStyle='#ffd966';ctx.font='bold 10px Inter';ctx.textAlign='center';
+  ctx.fillText('SPOT ₹'+ref,gx(ref),pad.t-5);
+
+  // Trade plan
+  function pcard(t,v,c){
+    return '<div class="card" style="padding:11px 13px;border-left:3px solid '+c+';">'+
+      '<div style="font-size:10px;font-weight:700;color:#4b5563;letter-spacing:1px;margin-bottom:3px;">'+t+'</div>'+
+      '<div style="font-size:13px;font-weight:700;color:'+c+';">'+v+'</div></div>';
+  }
+  var snames={long_call:'Long Call',long_put:'Long Put',bull_call_spread:'Bull Call Spread',
+    bear_put_spread:'Bear Put Spread',iron_condor:'Iron Condor',straddle:'Long Straddle',
+    strangle:'Long Strangle',covered_call:'Covered Call'};
+  document.getElementById('tc-plan').innerHTML=
+    pcard('STRATEGY',snames[strat]||strat,'#69ff9c')+
+    pcard('ENTRY STRIKE','₹'+s1,'#00e5ff')+
+    (s2?pcard('SELL STRIKE','₹'+s2,'#ffd966'):'')+
+    pcard('PREMIUM','₹'+p1+(p2?' + ₹'+p2:''),'#b388ff')+
+    pcard('BREAKEVEN',be2?'₹'+Math.round(be2)+' / ₹'+Math.round(be1):'₹'+Math.round(be1),'#ffd966')+
+    pcard('MAX PROFIT',maxP===Infinity?'Unlimited':'₹'+maxP.toLocaleString('en-IN',{maximumFractionDigits:0}),'#69ff9c')+
+    pcard('MAX LOSS','₹'+maxL.toLocaleString('en-IN',{maximumFractionDigits:0}),'#ff6e6e')+
+    pcard('PROFIT TARGET (50%)',maxP===Infinity?'Exit at 50% of cost':'₹'+(maxP*0.5).toLocaleString('en-IN',{maximumFractionDigits:0}),'#69ff9c')+
+    pcard('STOP LOSS TRIGGER','₹'+(totalCost*2).toLocaleString('en-IN',{maximumFractionDigits:0})+' total loss','#ff6e6e')+
+    pcard('LOT SIZE',lotSize+' × '+lots+' lots = '+(lotSize*lots)+' shares','#6b7280')+
+    pcard('TOTAL INVESTMENT','₹'+totalCost.toLocaleString('en-IN',{maximumFractionDigits:0}),'#4b5563');
+
+  document.getElementById('tc-result').classList.remove('hidden');
+  document.getElementById('tc-result').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+tcStratChange();
 
 function buildStbl(list){
   document.getElementById('stbl').innerHTML=list.map(function(s,i){
